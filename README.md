@@ -25,7 +25,7 @@ Ensure you have [Node.js](https://nodejs.org/) installed on your system to run t
 1. **Clone the Repository**
 
    ```bash
-   git clone https://github.com/[your-username]/gtav-radio.git
+   git clone https://github.com/ykapf/GTAV-Radio.git
    cd gtav-radio
 
    ```
