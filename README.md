@@ -64,9 +64,6 @@ Ensure you have [Node.js](https://nodejs.org/) installed on your system to run t
 
 After launching the app, you can interact with the radio wheel to choose different GTA V radio stations. Click on a station to begin streaming. The UI displays the current playing song and other relevant information.
 
-## Contributing
-
-Contributions to the GTA V Radio Web App are welcome! Please read our Contribution Guidelines for more information on how to contribute.
 
 ## License
 
@@ -76,3 +73,4 @@ This project is licensed under the MIT License.
 
 - GTA V is a trademark of Rockstar Games. This project is a fan-made creation and is not affiliated with Rockstar Games.
 - Radio content is streamed from YouTube and is subject to YouTube's terms of service.
+- Rockstar Games' copyright information regarding YouTube uploads can be found [here.](https://support.rockstargames.com/articles/204779558/Information-About-Being-Safe-From-Copyright-Strikes-When-Uploading-Rockstar-Editor-Videos)
