@@ -1,7 +1,14 @@
 "use client";
 
-import React, { useState, useEffect, CSSProperties } from "react";
+import React, { useState, useEffect, CSSProperties, useRef } from "react";
 import Papa from "papaparse";
+
+declare global {
+  interface Window {
+    onYouTubeIframeAPIReady: () => void;
+    YT: any;
+  }
+}
 
 type Station = {
   name: string;
@@ -17,7 +24,46 @@ export default function RadioWheel({}: RadioWheelProps) {
   const [selectedStation, setSelectedStation] = useState<Station | null>(null);
   const [hoveredStation, setHoveredStation] = useState<string | null>(null);
   const wheelRadius = 400; // radius of the wheel in pixels
-  const [youtubeLink, setYoutubeLink] = useState<string>(""); // youtube link to play
+
+  const playerRef = useRef<any>(null);
+  const [playerReady, setPlayerReady] = useState(false);
+
+  useEffect(() => {
+    // Load the YouTube IFrame Player API if not already loaded
+    if (!window.YT) {
+      const tag = document.createElement("script");
+      tag.src = "https://www.youtube.com/iframe_api";
+      const firstScriptTag = document.getElementsByTagName("script")[0];
+      firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
+
+      window.onYouTubeIframeAPIReady = () => {
+        playerRef.current = new window.YT.Player("youtube-player", {
+          width: "0",
+          height: "0",
+          videoId: "", // Default video ID, can be a placeholder
+          events: {
+            onReady: () => setPlayerReady(true),
+          },
+          playerVars: {
+            playsinline: 1,
+            autoplay: 1,
+            controls: 1,
+            modestbranding: 1,
+            loop: 1,
+            playlist: "", // Same as videoId for looping
+            allow: "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; allowfullscreen; loop;",
+          },
+        });
+      };
+    }
+  }, []); // Empty dependency array
+
+  const loadVideo = (station: any) => {
+    setSelectedStation(station);
+    if (playerReady && playerRef.current) {
+      playerRef.current.loadVideoById(station.link);
+    }
+  };
 
   useEffect(() => {
     async function fetchStations() {
@@ -73,15 +119,28 @@ export default function RadioWheel({}: RadioWheelProps) {
             onMouseEnter={() => setHoveredStation(station.name)}
             onMouseLeave={() => setHoveredStation(null)}
             onClick={() => {
-              setSelectedStation(station);
-              setYoutubeLink(station.link); // set youtube link to play
+              loadVideo(station);
             }}
           >
             <img className=" " src={imagePath} alt={station.description} style={{ maxWidth: "100%", maxHeight: "100%" }} />
           </button>
         );
       })}
-
+      <div
+        style={{
+          position: "fixed", // or 'absolute' if you want it relative to the parent div
+          top: "35%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: "560px", // Adjust width as needed
+          height: "315px", // Adjust height as needed
+        }}
+      >
+        <div id="youtube-player" className=""></div>
+      </div>
       {selectedStation && (
         <div
           style={{
@@ -101,21 +160,6 @@ export default function RadioWheel({}: RadioWheelProps) {
           <div>{selectedStation.name}</div>
           <div>{selectedStation.description}</div>
         </div>
-      )}
-
-      {youtubeLink && (
-        <iframe
-          className="absolute top-1/4 left-1/3"
-          title="YouTube Audio Player"
-          src={`https://www.youtube-nocookie.com/embed/${youtubeLink}?playlist=${youtubeLink}&controls=1&modestbranding=1&playsinline=1&color=white&loop=1&autoplay=1`}
-          style={{
-            width: "00",
-            height: "00",
-            border: "none",
-            overflow: "hidden",
-          }}
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; allowfullscreen; loop;"
-        />
       )}
     </div>
   );
