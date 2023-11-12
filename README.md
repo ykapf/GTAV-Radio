@@ -73,3 +73,4 @@ This project is licensed under the MIT License.
 - GTA V is a trademark of Rockstar Games. This project is a fan-made creation and is not affiliated with Rockstar Games.
 - Radio content is streamed from YouTube and is subject to YouTube's terms of service.
 - Rockstar Games' copyright information regarding YouTube uploads can be found [here.](https://support.rockstargames.com/articles/204779558/Information-About-Being-Safe-From-Copyright-Strikes-When-Uploading-Rockstar-Editor-Videos)
+- Gradient background is from [HyperColor](https://hypercolor.dev/).
