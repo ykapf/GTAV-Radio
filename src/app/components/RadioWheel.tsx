@@ -62,7 +62,7 @@ export default function RadioWheel({}: RadioWheelProps) {
       <div className="relative h-full w-[1px] left-[50%] bg-red-500"></div> {/*  testing guide lines */}
       <div className="relative w-full h-[1px] top-[-50%] bg-red-500"></div> {/*  testing guide lines */}
       {stations.map((station, index) => {
-        const angle = (360 / stations.length) * index;
+        const angle = (90 + (360 / stations.length) * index) % 360;
         const style = getStationStyle(angle);
 
         return (
