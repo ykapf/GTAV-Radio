@@ -106,10 +106,10 @@ export default function RadioWheel({}: RadioWheelProps) {
       {youtubeLink && (
         <iframe
           title="YouTube Audio Player"
-          src={`https://www.youtube.com/embed/${youtubeLink}&amp;&controls=0&loop=1&autoplay=1`}
+          src={`https://www.youtube.com/embed/${youtubeLink}&amp;&controls=0&loop=1&autoplay=1&muted=1`}
           style={{
-            width: "00",
-            height: "00",
+            width: "100",
+            height: "100",
             border: "none",
             overflow: "hidden",
           }}
