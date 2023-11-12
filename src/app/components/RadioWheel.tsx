@@ -13,6 +13,7 @@ type RadioWheelProps = {};
 
 export default function RadioWheel({}: RadioWheelProps) {
   const [stations, setStations] = useState<Station[]>([]);
+  const [selectedStation, setSelectedStation] = useState<string | null>(null);
   const [hoveredStation, setHoveredStation] = useState<string | null>(null);
   const wheelRadius = 400; // radius of the wheel in pixels
 
@@ -33,22 +34,24 @@ export default function RadioWheel({}: RadioWheelProps) {
     fetchStations();
   }, []);
 
-  const getStationStyle = (angle: number, isHovered: boolean): CSSProperties => {
+  const getStationStyle = (angle: number, isHovered: boolean, stationName: string): CSSProperties => {
     const stationWidth = isHovered ? 110 : 100; // 110 when hovered, 100 otherwise
     const stationHeight = isHovered ? 110 : 100;
-
     return {
       transform: `rotate(${angle}deg) translate(${wheelRadius}px) rotate(-${angle}deg) translate(-50%, -50%) scale(${isHovered ? 1.2 : 1})`,
       position: "absolute",
       top: "50%",
       left: "50%",
-      transformOrigin: "center", // Adjusted to scale from the center
+      transformOrigin: "center",
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
       width: `${stationWidth}px`,
       height: `${stationHeight}px`,
-      transition: "transform 0.3s ease", // Smooth transition for transform
+      transition: "transform 0.3s ease",
+      borderColor: selectedStation === stationName ? "blue" : "gray",
+      borderWidth: selectedStation === stationName ? "6px" : "4px",
+      opacity: selectedStation === stationName ? 1 : 0.5,
     };
   };
 
@@ -57,19 +60,20 @@ export default function RadioWheel({}: RadioWheelProps) {
       {stations.map((station, index) => {
         const angle = (90 + (360 / stations.length) * index) % 360;
         const isHovered = station.name === hoveredStation;
-        const style = getStationStyle(angle, isHovered);
+        const style = getStationStyle(angle, isHovered, station.name);
         const imagePath = `/radio_icons/${station.image}`;
 
         return (
-          <div
+          <button
             key={station.name}
-            className="rounded-full border-4 border-blue-500 flex justify-center items-center"
+            className="rounded-full flex justify-center items-center"
             style={style}
             onMouseEnter={() => setHoveredStation(station.name)}
             onMouseLeave={() => setHoveredStation(null)}
+            onClick={() => setSelectedStation(station.name)}
           >
             <img src={imagePath} alt={station.description} style={{ maxWidth: "100%", maxHeight: "100%" }} />
-          </div>
+          </button>
         );
       })}
     </div>
