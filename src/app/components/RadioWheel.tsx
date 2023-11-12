@@ -15,6 +15,8 @@ type Station = {
   description: string;
   image: string;
   link: string;
+  type: "v" | "p"; // New field to distinguish between video and playlist
+  playlistId?: string; // New field to store playlist ID
 };
 
 type RadioWheelProps = {};
@@ -38,9 +40,10 @@ export default function RadioWheel({}: RadioWheelProps) {
 
       window.onYouTubeIframeAPIReady = () => {
         playerRef.current = new window.YT.Player("youtube-player", {
-          width: "0",
-          height: "0",
+          width: "00",
+          height: "000",
           videoId: "", // Default video ID, can be a placeholder
+          startSeconds: 0, // gonna be useful if i want to add random start times.===
           events: {
             onReady: () => setPlayerReady(true),
           },
@@ -56,12 +59,24 @@ export default function RadioWheel({}: RadioWheelProps) {
         });
       };
     }
-  }, []); // Empty dependency array
+  }, []);
 
-  const loadVideo = (station: any) => {
+  const loadVideo = (station: Station) => {
     setSelectedStation(station);
     if (playerReady && playerRef.current) {
-      playerRef.current.loadVideoById(station.link);
+      if (station.type === "v") {
+        playerRef.current.loadVideoById(station.link);
+      } else if (station.type === "p" && station.playlistId) {
+        playerRef.current.loadPlaylist({
+          listType: "playlist",
+          list: station.playlistId,
+          index: 0,
+          startSeconds: 0,
+          autoplay: 1,
+          loop: 1,
+        });
+        playerRef.current.playVideo();
+      }
     }
   };
 
