@@ -1,36 +1,75 @@
-This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# GTA V Radio Web App
 
-## Getting Started
+## Description
 
-First, run the development server:
+This web application replicates the radio wheel from GTA V, allowing users to listen to various GTA V radio stations online. The app streams radio content from YouTube, providing an authentic GTA V radio experience complete with all radio information and currently playing songs. To enhance realism, radios loop and start at random times, avoiding repetitive beginnings.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## Features
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- Stream GTA V radio stations from YouTube.
+- Display current playing song and radio details.
+- Radio playback starts at a random point to simulate real radio experience.
+- Elegant and responsive UI mimicking GTA V's style.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Technologies Used
 
-This project uses [`next/font`](https://nextjs.org/docs/basic-features/font-optimization) to automatically optimize and load Inter, a custom Google Font.
+- React
+- Next.js
+- TypeScript
+- Tailwind CSS
 
-## Learn More
+## Installation and Setup
 
-To learn more about Next.js, take a look at the following resources:
+Ensure you have [Node.js](https://nodejs.org/) installed on your system to run this project.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. **Clone the Repository**
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js/) - your feedback and contributions are welcome!
+   ```bash
+   git clone https://github.com/ykapf/GTAV-Radio.git
+   cd gtav-radio
 
-## Deploy on Vercel
+   ```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+2. **Install Dependencies**
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/deployment) for more details.
+   Inside the project directory, run:
+
+   ```bash
+   npm install
+   ```
+
+   or if you are using yarn:
+
+   ```bash
+   yarn
+   ```
+
+3. **Run the Application Locally**
+
+   To start the development server, run:
+
+   ```bash
+   npm run dev
+   ```
+
+   or with yarn:
+
+   ```bash
+   yarn dev
+   ```
+
+   The application will be available at http://localhost:3000.
+
+## Usage
+
+After launching the app, you can interact with the radio wheel to choose different GTA V radio stations. Click on a station to begin streaming. The UI displays the current playing song and other relevant information.
+
+## License
+
+This project is licensed under the MIT License.
+
+## Acknowledgements
+
+- GTA V is a trademark of Rockstar Games. This project is a fan-made creation and is not affiliated with Rockstar Games.
+- Radio content is streamed from YouTube and is subject to YouTube's terms of service.
+- Rockstar Games' copyright information regarding YouTube uploads can be found [here.](https://support.rockstargames.com/articles/204779558/Information-About-Being-Safe-From-Copyright-Strikes-When-Uploading-Rockstar-Editor-Videos)
