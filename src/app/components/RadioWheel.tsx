@@ -53,7 +53,7 @@ export default function RadioWheel({}: RadioWheelProps) {
       transition: "transform 0.3s ease",
       borderColor: selectedStation?.name === stationName ? "blue" : "gray",
       borderWidth: selectedStation?.name === stationName ? "6px" : "4px",
-      opacity: selectedStation?.name === stationName ? 1 : 0.5,
+      opacity: selectedStation?.name === stationName ? 1 : 0.6,
     };
   };
 
