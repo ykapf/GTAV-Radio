@@ -13,7 +13,7 @@ type RadioWheelProps = {};
 
 export default function RadioWheel({}: RadioWheelProps) {
   const [stations, setStations] = useState<Station[]>([]);
-  const [selectedStation, setSelectedStation] = useState<string | null>(null);
+  const [selectedStation, setSelectedStation] = useState<Station | null>(null);
   const [hoveredStation, setHoveredStation] = useState<string | null>(null);
   const wheelRadius = 400; // radius of the wheel in pixels
 
@@ -49,9 +49,9 @@ export default function RadioWheel({}: RadioWheelProps) {
       width: `${stationWidth}px`,
       height: `${stationHeight}px`,
       transition: "transform 0.3s ease",
-      borderColor: selectedStation === stationName ? "blue" : "gray",
-      borderWidth: selectedStation === stationName ? "6px" : "4px",
-      opacity: selectedStation === stationName ? 1 : 0.5,
+      borderColor: selectedStation?.name === stationName ? "blue" : "gray",
+      borderWidth: selectedStation?.name === stationName ? "6px" : "4px",
+      opacity: selectedStation?.name === stationName ? 1 : 0.5,
     };
   };
 
@@ -70,12 +70,33 @@ export default function RadioWheel({}: RadioWheelProps) {
             style={style}
             onMouseEnter={() => setHoveredStation(station.name)}
             onMouseLeave={() => setHoveredStation(null)}
-            onClick={() => setSelectedStation(station.name)}
+            onClick={() => setSelectedStation(station)}
           >
             <img src={imagePath} alt={station.description} style={{ maxWidth: "100%", maxHeight: "100%" }} />
           </button>
         );
       })}
+
+      {selectedStation && (
+        <div
+          style={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: "20px",
+            color: "white",
+            textAlign: "center",
+          }}
+        >
+          <div>{selectedStation.name}</div>
+          <div>{selectedStation.description}</div>
+        </div>
+      )}
     </div>
   );
 }
