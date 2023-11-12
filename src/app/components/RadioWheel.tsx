@@ -7,6 +7,7 @@ type Station = {
   name: string;
   description: string;
   image: string;
+  link: string;
 };
 
 type RadioWheelProps = {};
@@ -16,6 +17,7 @@ export default function RadioWheel({}: RadioWheelProps) {
   const [selectedStation, setSelectedStation] = useState<Station | null>(null);
   const [hoveredStation, setHoveredStation] = useState<string | null>(null);
   const wheelRadius = 400; // radius of the wheel in pixels
+  const [youtubeLink, setYoutubeLink] = useState<string>(""); // youtube link to play
 
   useEffect(() => {
     async function fetchStations() {
@@ -70,7 +72,10 @@ export default function RadioWheel({}: RadioWheelProps) {
             style={style}
             onMouseEnter={() => setHoveredStation(station.name)}
             onMouseLeave={() => setHoveredStation(null)}
-            onClick={() => setSelectedStation(station)}
+            onClick={() => {
+              setSelectedStation(station);
+              setYoutubeLink(station.link); // set youtube link to play
+            }}
           >
             <img src={imagePath} alt={station.description} style={{ maxWidth: "100%", maxHeight: "100%" }} />
           </button>
@@ -96,6 +101,20 @@ export default function RadioWheel({}: RadioWheelProps) {
           <div>{selectedStation.name}</div>
           <div>{selectedStation.description}</div>
         </div>
+      )}
+
+      {youtubeLink && (
+        <iframe
+          title="YouTube Audio Player"
+          src={`https://www.youtube.com/embed/${youtubeLink}&amp;&controls=0&loop=1&autoplay=1`}
+          style={{
+            width: "00",
+            height: "00",
+            border: "none",
+            overflow: "hidden",
+          }}
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share "
+        />
       )}
     </div>
   );
