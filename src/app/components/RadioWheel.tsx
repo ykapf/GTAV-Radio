@@ -40,7 +40,7 @@ export default function RadioWheel({}: RadioWheelProps) {
     const stationWidth = isHovered ? 110 : 100; // 110 when hovered, 100 otherwise
     const stationHeight = isHovered ? 110 : 100;
     return {
-      transform: `rotate(${angle}deg) translate(${wheelRadius}px) rotate(-${angle}deg) translate(-50%, -50%) scale(${isHovered ? 1.2 : 1})`,
+      transform: `rotate(${angle}deg) translate(${wheelRadius}px) rotate(-${angle}deg) translate(-50%, -50%) scale(${isHovered ? 1.1 : 1})`,
       position: "absolute",
       top: "50%",
       left: "50%",
@@ -105,15 +105,16 @@ export default function RadioWheel({}: RadioWheelProps) {
 
       {youtubeLink && (
         <iframe
+          className="absolute top-1/4 left-1/3"
           title="YouTube Audio Player"
-          src={`https://www.youtube.com/embed/${youtubeLink}&amp;&controls=0&loop=1&autoplay=1`}
+          src={`https://www.youtube-nocookie.com/embed/${youtubeLink}?playlist=${youtubeLink}&controls=1&modestbranding=1&playsinline=1&color=white&loop=1&autoplay=1`}
           style={{
             width: "00",
             height: "00",
             border: "none",
             overflow: "hidden",
           }}
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share "
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; allowfullscreen; loop;"
         />
       )}
     </div>
