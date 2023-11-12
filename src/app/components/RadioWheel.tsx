@@ -68,7 +68,7 @@ export default function RadioWheel({}: RadioWheelProps) {
         return (
           <button
             key={station.name}
-            className="rounded-full flex justify-center items-center"
+            className="rounded-full flex justify-center items-center "
             style={style}
             onMouseEnter={() => setHoveredStation(station.name)}
             onMouseLeave={() => setHoveredStation(null)}
@@ -77,7 +77,7 @@ export default function RadioWheel({}: RadioWheelProps) {
               setYoutubeLink(station.link); // set youtube link to play
             }}
           >
-            <img src={imagePath} alt={station.description} style={{ maxWidth: "100%", maxHeight: "100%" }} />
+            <img className=" " src={imagePath} alt={station.description} style={{ maxWidth: "100%", maxHeight: "100%" }} />
           </button>
         );
       })}
