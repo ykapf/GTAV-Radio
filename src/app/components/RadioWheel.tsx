@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, CSSProperties, useRef } from "react";
 import Papa from "papaparse";
+import CustomCursor from "../components/Cursor";
 
 declare global {
   interface Window {
@@ -41,7 +42,7 @@ export default function RadioWheel({}: RadioWheelProps) {
       window.onYouTubeIframeAPIReady = () => {
         playerRef.current = new window.YT.Player("youtube-player", {
           width: "00",
-          height: "000",
+          height: "00",
           videoId: "", // Default video ID, can be a placeholder
           startSeconds: 0, // gonna be useful if i want to add random start times.===
           events: {
@@ -119,63 +120,66 @@ export default function RadioWheel({}: RadioWheelProps) {
   };
 
   return (
-    <div className="" style={{ position: "relative", width: `${wheelRadius * 2}px`, height: `${wheelRadius * 2}px` }}>
-      {stations.map((station, index) => {
-        const angle = (90 + (360 / stations.length) * index) % 360;
-        const isHovered = station.name === hoveredStation;
-        const style = getStationStyle(angle, isHovered, station.name);
-        const imagePath = `/radio_icons/${station.image}`;
+    <main>
+      <CustomCursor />
+      <div className="" style={{ position: "relative", width: `${wheelRadius * 2}px`, height: `${wheelRadius * 2}px` }}>
+        {stations.map((station, index) => {
+          const angle = (90 + (360 / stations.length) * index) % 360;
+          const isHovered = station.name === hoveredStation;
+          const style = getStationStyle(angle, isHovered, station.name);
+          const imagePath = `/radio_icons/${station.image}`;
 
-        return (
-          <button
-            key={station.name}
-            className="rounded-full flex justify-center items-center "
-            style={style}
-            onMouseEnter={() => setHoveredStation(station.name)}
-            onMouseLeave={() => setHoveredStation(null)}
-            onClick={() => {
-              loadVideo(station);
-            }}
-          >
-            <img className=" " src={imagePath} alt={station.description} style={{ maxWidth: "100%", maxHeight: "100%" }} />
-          </button>
-        );
-      })}
-      <div
-        style={{
-          position: "fixed", // or 'absolute' if you want it relative to the parent div
-          top: "35%",
-          left: "50%",
-          transform: "translate(-50%, -50%)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          width: "560px", // Adjust width as needed
-          height: "315px", // Adjust height as needed
-        }}
-      >
-        <div id="youtube-player" className=""></div>
-      </div>
-      {selectedStation && (
+          return (
+            <button
+              key={station.name}
+              className="rounded-full flex justify-center items-center cursor-none"
+              style={style}
+              onMouseEnter={() => setHoveredStation(station.name)}
+              onMouseLeave={() => setHoveredStation(null)}
+              onClick={() => {
+                loadVideo(station);
+              }}
+            >
+              <img className=" " src={imagePath} alt={station.description} style={{ maxWidth: "100%", maxHeight: "100%" }} />
+            </button>
+          );
+        })}
         <div
           style={{
-            position: "absolute",
-            top: "50%",
+            position: "fixed",
+            top: "35%",
             left: "50%",
             transform: "translate(-50%, -50%)",
             display: "flex",
-            flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
-            fontSize: "20px",
-            color: "white",
-            textAlign: "center",
+            width: "00px", // Adjust width as needed
+            height: "00px", // Adjust height as needed
           }}
         >
-          <div>{selectedStation.name}</div>
-          <div>{selectedStation.description}</div>
+          <div id="youtube-player" className=""></div>
         </div>
-      )}
-    </div>
+        {selectedStation && (
+          <div
+            style={{
+              position: "absolute",
+              top: "50%",
+              left: "50%",
+              transform: "translate(-50%, -50%)",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: "20px",
+              color: "white",
+              textAlign: "center",
+            }}
+          >
+            <div>{selectedStation.name}</div>
+            <div>{selectedStation.description}</div>
+          </div>
+        )}
+      </div>
+    </main>
   );
 }
