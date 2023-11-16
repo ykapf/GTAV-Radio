@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, CSSProperties, useRef } from "react";
 import Papa from "papaparse";
-import CustomCursor from "../components/Cursor";
 
 declare global {
   interface Window {
@@ -121,7 +120,6 @@ export default function RadioWheel({}: RadioWheelProps) {
 
   return (
     <main>
-      <CustomCursor />
       <div className="" style={{ position: "relative", width: `${wheelRadius * 2}px`, height: `${wheelRadius * 2}px` }}>
         {stations.map((station, index) => {
           const angle = (90 + (360 / stations.length) * index) % 360;
