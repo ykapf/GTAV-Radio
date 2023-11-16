@@ -1,8 +1,9 @@
 "use client";
-import React, { useEffect, useState } from "react"; // Corrected the import statement.
+import React, { useEffect, useState } from "react";
 
 export default function CustomCursor() {
   const [mousePosition, setMousePosition] = useState({ x: -100, y: -100 });
+  const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
     const mouseMove = (e: any) => {
@@ -10,18 +11,25 @@ export default function CustomCursor() {
         x: e.clientX,
         y: e.clientY,
       });
+      setIsVisible(true);
     };
 
-    window.addEventListener("mousemove", mouseMove);
+    const mouseOut = () => {
+      setIsVisible(false);
+    };
+
+    document.addEventListener("mousemove", mouseMove);
+    document.addEventListener("mouseout", mouseOut);
 
     return () => {
-      window.removeEventListener("mousemove", mouseMove);
+      document.removeEventListener("mousemove", mouseMove);
+      document.removeEventListener("mouseout", mouseOut);
     };
   }, []);
 
   return (
     <div
-      className=" cursor"
+      className="cursor"
       style={{
         left: `${mousePosition.x - 12}px`,
         top: `${mousePosition.y - 4}px`,
@@ -31,9 +39,10 @@ export default function CustomCursor() {
         position: "fixed",
         pointerEvents: "none",
         zIndex: 9999,
+        visibility: isVisible ? "visible" : "hidden",
       }}
     >
-      <img className="" src="cursor.png" alt="cursor" style={{ maxWidth: "100%", maxHeight: "100%" }} />
+      <img src="cursor.png" alt="Custom Cursor" style={{ maxWidth: "100%", maxHeight: "100%" }} />
     </div>
   );
 }
