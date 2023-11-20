@@ -114,15 +114,18 @@ export default function RadioWheel({}: RadioWheelProps) {
           playerRef.current.loadVideoById({ videoId: station.link, startSeconds: randomStart });
         }, 500); // Wait for 1 second to ensure video data is loaded
       } else if (station.type === "p" && station.playlistId) {
+        // Load and shuffle the playlist
         playerRef.current.loadPlaylist({
           listType: "playlist",
           list: station.playlistId,
-          index: 0,
-          startSeconds: 0,
-          autoplay: 1,
-          loop: 1,
         });
-        playerRef.current.playVideo();
+        playerRef.current.setShuffle(true);
+
+        setTimeout(() => {
+          const playlistSize = playerRef.current.getPlaylist().length;
+          const randomIndex = Math.floor(Math.random() * playlistSize);
+          playerRef.current.playVideoAt(randomIndex);
+        }, 500); // Wait for the playlist to be loaded and shuffled
       }
     }
   };
