@@ -43,8 +43,8 @@ export default function RadioWheel({}: RadioWheelProps) {
 
       window.onYouTubeIframeAPIReady = () => {
         playerRef.current = new window.YT.Player("youtube-player", {
-          width: "500",
-          height: "500",
+          width: "00",
+          height: "00",
           videoId: "", // Default video ID, can be a placeholder
           startSeconds: 0, // gonna be useful if i want to add random start times.===
           events: {
@@ -233,8 +233,8 @@ export default function RadioWheel({}: RadioWheelProps) {
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            width: "500px", // Adjust width as needed
-            height: "500px", // Adjust height as needed
+            width: "00px", // Adjust width as needed
+            height: "00px", // Adjust height as needed
           }}
         >
           <div id="youtube-player" className=""></div>
