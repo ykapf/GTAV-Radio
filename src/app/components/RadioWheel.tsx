@@ -208,8 +208,8 @@ export default function RadioWheel({}: RadioWheelProps) {
                 style={{ width: `${wheelRadius * 2}px`, height: `${wheelRadius * 2}px` }}
               />
               <div className="flex flex-col justify-center items-start">
-                <div className="font-bold text-xl">{station.name}</div>
-                <div className="indent-1">{station.description}</div>
+                <div className="font-bold text-xl text-start">{station.name}</div>
+                <div className="pl-1 text-start">{station.description}</div>
               </div>
             </button>
           );
