@@ -33,6 +33,8 @@ export default function RadioWheel({}: RadioWheelProps) {
   const [volume, setVolume] = useState(100); // Volume state
   const [tempVolume, setTempVolume] = useState(100); // Temporary volume state
 
+  const [isWheelVisible, setIsWheelVisible] = useState(true); // Default is true to show the wheel initially
+
   useEffect(() => {
     // Load the YouTube IFrame Player API if not already loaded
     if (!window.YT) {
@@ -137,6 +139,10 @@ export default function RadioWheel({}: RadioWheelProps) {
     }
   };
 
+  const toggleWheelVisibility = () => {
+    setIsWheelVisible(!isWheelVisible);
+  };
+
   useEffect(() => {
     async function fetchStations() {
       const response = await fetch("/radio_list.csv");
@@ -176,7 +182,7 @@ export default function RadioWheel({}: RadioWheelProps) {
   };
 
   return (
-    <main>
+    <main className={`  flex items-center ${isWheelVisible ? "md:h-screen" : "h-full"}  `}>
       <style>
         {`
           @media screen and (max-height: 700px || max-width: 700px)  {
@@ -251,8 +257,91 @@ export default function RadioWheel({}: RadioWheelProps) {
         })}
       </div>
       <div id="youtube-player" className=""></div>
+
+      {/* Desktop Layout Alternative */}
+      <div className={` h-[(100vh+600px)]     ${isWheelVisible ? "md:hidden" : "md:block"} hidden `}>
+        {/* Desktop Now Playing Bar */}
+        <div className=" flex fixed top-0 left-0 w-full h-[100px] bg-black text-white  items-center  z-10 justify-end">
+          {selectedStation && (
+            <div className="flex flex-row justify-start items-center w-2/3 pl-[75px]">
+              <img
+                src={`/radio_icons/${selectedStation.image}`}
+                alt={selectedStation.name}
+                className=" flex justify-center items-center m-2 w-11/12"
+                style={{ width: `${wheelRadius * 1.5}px`, height: `${wheelRadius * 1.5}px` }}
+              />
+              <div className="pl-[20px] text-start flex-col">
+                <div className="font-bold text-lg">{selectedStation.name}</div>
+                <div className="text-sm">{selectedStation.description}</div>
+                <div className="text-sm">now playing place holder ... tbc</div>
+              </div>
+            </div>
+          )}
+
+          <div className="flex  justify-end items-center  w-1/3">
+            {/* volume button */}
+            <div className=" flex flex-row items-center justify-center gap-2">
+              {volume === 0 ? (
+                <button className="md:cursor-none" onClick={handleUnmute}>
+                  <img src="/mute.png" alt="Mute" style={{ width: "25px", height: "25px" }} />
+                </button>
+              ) : (
+                <button className="md:cursor-none" onClick={handleMute}>
+                  <img src="/unmute.png" alt="Unmute" style={{ width: "25px", height: "25px" }} />
+                </button>
+              )}
+              <input type="range" min="0" max="100" value={volume} onChange={(e) => handleVolumeChange(e.target.value)} />
+            </div>
+            {/* Toggle Switch for Desktop Mode */}
+            <div className="flex justify-center items-center  ">
+              <button onClick={toggleWheelVisibility} className="p-2 bg-gray-300 rounded cursor-none">
+                {isWheelVisible ? "List" : "Wheel"}
+              </button>
+            </div>
+          </div>
+        </div>
+        {/* alt Desktop Layout */}
+
+        <div className={` grid md:grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3    items-center justify-center gap-4 p-4 mt-[100px]`}>
+          {stations.map((station) => {
+            const imagePath = `/radio_icons/${station.image}`;
+
+            return (
+              <button
+                key={station.name}
+                style={{
+                  opacity: selectedStation?.name === station.name ? 1 : 0.6,
+                  transition: "transform 0.3s ease",
+                  borderColor: selectedStation?.name === station.name ? "blue" : "gray",
+                  borderWidth: selectedStation?.name === station.name ? "4px" : "2px",
+                  scale: selectedStation?.name === station.name ? 1.025 : 1,
+                }}
+                className="flex justify-start items-center w-full rounded-xl outline outline-[2px] outline-black/10 bg-black/10 cursor-none"
+                onClick={() => {
+                  loadVideo(station);
+                }}
+              >
+                <img
+                  src={imagePath}
+                  alt={station.description}
+                  className=" flex justify-center items-center m-2 w-11/12"
+                  style={{ width: `${wheelRadius * 2}px`, height: `${wheelRadius * 2}px` }}
+                />
+                <div className="flex flex-col justify-center items-start">
+                  <div className="font-bold text-xl text-start">{station.name}</div>
+                  <div className="pl-1 text-start">{station.description}</div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Desktop Layout */}
-      <div className="height-desktop hidden md:flex" style={{ position: "relative", width: `${wheelRadius * 2}vh`, height: `${wheelRadius * 2}vh` }}>
+      <div
+        className={`height-desktop ${isWheelVisible ? "" : "md:hidden"} hidden md:flex `}
+        style={{ position: "relative", width: `${wheelRadius * 2}vh`, height: `${wheelRadius * 2}vh` }}
+      >
         {stations.map((station, index) => {
           const angle = (90 + (360 / stations.length) * index) % 360;
           const isHovered = station.name === hoveredStation;
@@ -307,21 +396,28 @@ export default function RadioWheel({}: RadioWheelProps) {
           >
             <div>{selectedStation.name}</div>
             <div>{selectedStation.description}</div>
+            {/* Volume Control Slider */}
+            <div className={` hidden md:flex flex-row items-center justify-center gap-2    ${isWheelVisible ? "md:block" : "md:hidden"}  `}>
+              {volume === 0 ? (
+                <button className="md:cursor-none" onClick={handleUnmute}>
+                  <img src="/mute.png" alt="Mute" style={{ width: "25px", height: "25px" }} />
+                </button>
+              ) : (
+                <button className="md:cursor-none" onClick={handleMute}>
+                  <img src="/unmute.png" alt="Unmute" style={{ width: "25px", height: "25px" }} />
+                </button>
+              )}
+              <input type="range" min="0" max="100" value={volume} onChange={(e) => handleVolumeChange(e.target.value)} />
+            </div>
           </div>
         )}
       </div>
-      {/* Volume Control Slider */}
-      <div className="volume-control hidden md:flex flex-col items-center justify-center gap-2" style={{ position: "fixed", top: "20px", right: "20px" }}>
-        {volume === 0 ? (
-          <button className="md:cursor-none" onClick={handleUnmute}>
-            <img src="/mute.png" alt="Mute" style={{ width: "75px", height: "75px" }} />
-          </button>
-        ) : (
-          <button className="md:cursor-none" onClick={handleMute}>
-            <img src="/unmute.png" alt="Unmute" style={{ width: "75px", height: "75px" }} />
-          </button>
-        )}
-        <input type="range" min="0" max="100" value={volume} onChange={(e) => handleVolumeChange(e.target.value)} />
+
+      {/* Toggle Switch for Desktop Mode */}
+      <div className={` hidden md:flex justify-center items-center fixed top-[28px] right-[2px]   ${isWheelVisible ? "md:block" : "md:hidden"}  `}>
+        <button onClick={toggleWheelVisibility} className="p-2 px-4 bg-gray-300 rounded cursor-none">
+          {isWheelVisible ? "List" : "Wheel"}
+        </button>
       </div>
     </main>
   );
