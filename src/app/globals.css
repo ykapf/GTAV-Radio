@@ -21,7 +21,7 @@ body {
   background: linear-gradient(to bottom, transparent, rgb(var(--background-end-rgb))) rgb(var(--background-start-rgb));
 }
 
-@media screen and (min-width: 701px) {
+@media screen and (min-width: 640px) {
   * {
     cursor: none;
   }

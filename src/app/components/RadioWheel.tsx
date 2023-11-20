@@ -43,8 +43,8 @@ export default function RadioWheel({}: RadioWheelProps) {
 
       window.onYouTubeIframeAPIReady = () => {
         playerRef.current = new window.YT.Player("youtube-player", {
-          width: "00",
-          height: "00",
+          width: "001",
+          height: "001",
           videoId: "", // Default video ID, can be a placeholder
           startSeconds: 0, // gonna be useful if i want to add random start times.===
           events: {
@@ -233,8 +233,8 @@ export default function RadioWheel({}: RadioWheelProps) {
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            width: "00px", // Adjust width as needed
-            height: "00px", // Adjust height as needed
+            width: "001px", // Adjust width as needed
+            height: "001px", // Adjust height as needed
           }}
         >
           <div id="youtube-player" className=""></div>
@@ -261,7 +261,7 @@ export default function RadioWheel({}: RadioWheelProps) {
         )}
       </div>
       {/* Volume Control Slider */}
-      <div className="volume-control flex flex-col items-center justify-center gap-2" style={{ position: "fixed", top: "50px", right: "20px" }}>
+      <div className="volume-control hidden md:flex flex-col items-center justify-center gap-2" style={{ position: "fixed", top: "50px", right: "20px" }}>
         {volume === 0 ? (
           <button className="md:cursor-none" onClick={handleUnmute}>
             <img src="/mute.png" alt="Mute" style={{ width: "75px", height: "75px" }} />

@@ -29,7 +29,7 @@ export default function CustomCursor() {
 
   return (
     <div
-      className="cursor"
+      className="cursor hidden sm:block"
       style={{
         left: `${mousePosition.x - 12}px`,
         top: `${mousePosition.y - 4}px`,
