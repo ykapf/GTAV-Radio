@@ -43,8 +43,8 @@ export default function RadioWheel({}: RadioWheelProps) {
 
       window.onYouTubeIframeAPIReady = () => {
         playerRef.current = new window.YT.Player("youtube-player", {
-          width: "501",
-          height: "501",
+          width: "01",
+          height: "01",
           videoId: "", // Default video ID, can be a placeholder
           startSeconds: 0, // gonna be useful if i want to add random start times.===
           events: {
@@ -120,11 +120,18 @@ export default function RadioWheel({}: RadioWheelProps) {
           list: station.playlistId,
         });
         playerRef.current.setShuffle(true);
+        playerRef.current.mute(); // Mute the playlist initially
 
         setTimeout(() => {
           const playlistSize = playerRef.current.getPlaylist().length;
           const randomIndex = Math.floor(Math.random() * playlistSize);
           playerRef.current.playVideoAt(randomIndex);
+          setTimeout(() => {
+            const duration = playerRef.current.getDuration();
+            const randomStart = Math.floor(Math.random() * duration);
+            playerRef.current.seekTo(randomStart);
+            playerRef.current.unMute(); // Unmute
+          }, 550);
         }, 500); // Wait for the playlist to be loaded and shuffled
       }
     }
