@@ -7,13 +7,17 @@ export default function Footer() {
   return (
     <>
       <nav
-        className={` w-full flex flex-row justify-between items-center py-[28px] font-light text-3xl  cursor-none    bg-black h-[300px] px-[75px] 
+        className={` w-full flex flex-row justify-between items-center py-[28px] font-light text-3xl      bg-black h-[300px] px-[75px] 
         `}
       >
         {/* Footer content */}
-        <div className=" text-white uppercase"></div>
+        <div className=" bg-white rounded-full flex items-center justify-center w-[50px] hover:bg-gray-200 ">
+          <Link className="   text-white  hover:underline " href="https://github.com/ykapf/GTAV-Radio">
+            <img src="/github.png" className="w-full h-full inline-block -translate-y-[1px] scale-[1.02]" />
+          </Link>
+        </div>
         {/* Middle */}
-        <Link className="   text-white cursor-none hover:underline " href="https://www.ykapf.com/">
+        <Link className="   text-white  hover:underline " href="https://www.ykapf.com/">
           @ykapf.
         </Link>
       </nav>
