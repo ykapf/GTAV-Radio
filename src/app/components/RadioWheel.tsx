@@ -43,8 +43,8 @@ export default function RadioWheel({}: RadioWheelProps) {
 
       window.onYouTubeIframeAPIReady = () => {
         playerRef.current = new window.YT.Player("youtube-player", {
-          width: "001",
-          height: "001",
+          width: "501",
+          height: "501",
           videoId: "", // Default video ID, can be a placeholder
           startSeconds: 0, // gonna be useful if i want to add random start times.===
           events: {
@@ -105,7 +105,14 @@ export default function RadioWheel({}: RadioWheelProps) {
     setSelectedStation(station);
     if (playerReady && playerRef.current) {
       if (station.type === "v") {
-        playerRef.current.loadVideoById(station.link);
+        // Load the video to get the duration
+        playerRef.current.cueVideoById(station.link);
+
+        setTimeout(() => {
+          const duration = playerRef.current.getDuration();
+          const randomStart = Math.floor(Math.random() * duration);
+          playerRef.current.loadVideoById({ videoId: station.link, startSeconds: randomStart });
+        }, 500); // Wait for 1 second to ensure video data is loaded
       } else if (station.type === "p" && station.playlistId) {
         playerRef.current.loadPlaylist({
           listType: "playlist",
@@ -188,7 +195,7 @@ export default function RadioWheel({}: RadioWheelProps) {
             <img
               src={`/radio_icons/${selectedStation.image}`}
               alt={selectedStation.name}
-              className="rounded-full flex justify-center items-center m-2 w-11/12"
+              className=" flex justify-center items-center m-2 w-11/12"
               style={{ width: `${wheelRadius * 1.5}px`, height: `${wheelRadius * 1.5}px` }}
             />
             <div className="pl-[20px] text-start flex-col">
@@ -222,7 +229,7 @@ export default function RadioWheel({}: RadioWheelProps) {
               <img
                 src={imagePath}
                 alt={station.description}
-                className="rounded-full flex justify-center items-center m-2 w-11/12"
+                className=" flex justify-center items-center m-2 w-11/12"
                 style={{ width: `${wheelRadius * 2}px`, height: `${wheelRadius * 2}px` }}
               />
               <div className="flex flex-col justify-center items-start">
