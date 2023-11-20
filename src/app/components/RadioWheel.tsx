@@ -43,8 +43,8 @@ export default function RadioWheel({}: RadioWheelProps) {
 
       window.onYouTubeIframeAPIReady = () => {
         playerRef.current = new window.YT.Player("youtube-player", {
-          width: "00",
-          height: "00",
+          width: "500",
+          height: "500",
           videoId: "", // Default video ID, can be a placeholder
           startSeconds: 0, // gonna be useful if i want to add random start times.===
           events: {
@@ -200,7 +200,7 @@ export default function RadioWheel({}: RadioWheelProps) {
           );
         })}
       </div>
-
+      <div id="youtube-player" className=""></div>
       {/* Desktop Layout */}
       <div className="height-desktop hidden md:flex" style={{ position: "relative", width: `${wheelRadius * 2}vh`, height: `${wheelRadius * 2}vh` }}>
         {stations.map((station, index) => {
@@ -233,8 +233,8 @@ export default function RadioWheel({}: RadioWheelProps) {
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            width: "00px", // Adjust width as needed
-            height: "00px", // Adjust height as needed
+            width: "500px", // Adjust width as needed
+            height: "500px", // Adjust height as needed
           }}
         >
           <div id="youtube-player" className=""></div>
