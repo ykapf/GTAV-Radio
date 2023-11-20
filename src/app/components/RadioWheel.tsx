@@ -43,8 +43,8 @@ export default function RadioWheel({}: RadioWheelProps) {
 
       window.onYouTubeIframeAPIReady = () => {
         playerRef.current = new window.YT.Player("youtube-player", {
-          width: "00",
-          height: "00",
+          width: "500",
+          height: "500",
           videoId: "", // Default video ID, can be a placeholder
           startSeconds: 0, // gonna be useful if i want to add random start times.===
           events: {
@@ -200,7 +200,7 @@ export default function RadioWheel({}: RadioWheelProps) {
           );
         })}
       </div>
-
+      <div id="youtube-player" className=""></div>
       {/* Desktop Layout */}
       <div className="height-desktop hidden md:flex" style={{ position: "relative", width: `${wheelRadius * 2}vh`, height: `${wheelRadius * 2}vh` }}>
         {stations.map((station, index) => {
@@ -233,8 +233,8 @@ export default function RadioWheel({}: RadioWheelProps) {
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            width: "00px", // Adjust width as needed
-            height: "00px", // Adjust height as needed
+            width: "500px", // Adjust width as needed
+            height: "500px", // Adjust height as needed
           }}
         >
           <div id="youtube-player" className=""></div>
@@ -261,14 +261,14 @@ export default function RadioWheel({}: RadioWheelProps) {
         )}
       </div>
       {/* Volume Control Slider */}
-      <div className="volume-control flex flex-col" style={{ position: "fixed", top: "50px", right: "20px" }}>
+      <div className="volume-control flex flex-col items-center justify-center gap-2" style={{ position: "fixed", top: "50px", right: "20px" }}>
         {volume === 0 ? (
           <button className="md:cursor-none" onClick={handleUnmute}>
-            Unmute
+            <img src="/mute.png" alt="Mute" style={{ width: "75px", height: "75px" }} />
           </button>
         ) : (
           <button className="md:cursor-none" onClick={handleMute}>
-            Mute
+            <img src="/unmute.png" alt="Unmute" style={{ width: "75px", height: "75px" }} />
           </button>
         )}
         <input type="range" min="0" max="100" value={volume} onChange={(e) => handleVolumeChange(e.target.value)} />
