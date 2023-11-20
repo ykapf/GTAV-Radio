@@ -182,20 +182,35 @@ export default function RadioWheel({}: RadioWheelProps) {
         `}
       </style>
       {/* Mobile Layout */}
-      <div className={`height-mobile md:hidden flex flex-col items-center justify-center`}>
+      <div className={`height-mobile md:hidden flex flex-col items-center justify-center gap-4 p-4`}>
         {stations.map((station) => {
           const imagePath = `/radio_icons/${station.image}`;
 
           return (
             <button
               key={station.name}
-              className="rounded-full flex justify-center items-center m-2 w-11/12"
-              style={{ width: `${wheelRadius * 2}px`, height: `${wheelRadius * 2}px` }}
+              style={{
+                opacity: selectedStation?.name === station.name ? 1 : 0.6,
+                transition: "transform 0.3s ease",
+                borderColor: selectedStation?.name === station.name ? "blue" : "gray",
+                borderWidth: selectedStation?.name === station.name ? "4px" : "2px",
+                scale: selectedStation?.name === station.name ? 1.025 : 1,
+              }}
+              className="flex justify-start items-center w-full rounded-xl outline outline-[2px] outline-black/10 bg-black/10"
               onClick={() => {
                 loadVideo(station);
               }}
             >
-              <img src={imagePath} alt={station.description} className="max-w-full max-h-full" />
+              <img
+                src={imagePath}
+                alt={station.description}
+                className="rounded-full flex justify-center items-center m-2 w-11/12"
+                style={{ width: `${wheelRadius * 2}px`, height: `${wheelRadius * 2}px` }}
+              />
+              <div className="flex flex-col justify-center items-start">
+                <div className="font-bold text-xl">{station.name}</div>
+                <div className="indent-1">{station.description}</div>
+              </div>
             </button>
           );
         })}
@@ -261,7 +276,7 @@ export default function RadioWheel({}: RadioWheelProps) {
         )}
       </div>
       {/* Volume Control Slider */}
-      <div className="volume-control hidden md:flex flex-col items-center justify-center gap-2" style={{ position: "fixed", top: "50px", right: "20px" }}>
+      <div className="volume-control hidden md:flex flex-col items-center justify-center gap-2" style={{ position: "fixed", top: "20px", right: "20px" }}>
         {volume === 0 ? (
           <button className="md:cursor-none" onClick={handleUnmute}>
             <img src="/mute.png" alt="Mute" style={{ width: "75px", height: "75px" }} />
