@@ -30,6 +30,9 @@ export default function RadioWheel({}: RadioWheelProps) {
   const playerRef = useRef<any>(null);
   const [playerReady, setPlayerReady] = useState(false);
 
+  const [volume, setVolume] = useState(100); // Volume state
+  const [tempVolume, setTempVolume] = useState(100); // Temporary volume state
+
   useEffect(() => {
     // Load the YouTube IFrame Player API if not already loaded
     if (!window.YT) {
@@ -60,6 +63,43 @@ export default function RadioWheel({}: RadioWheelProps) {
       };
     }
   }, []);
+
+  // Function to handle volume changes from the slider
+  const handleVolumeChange = (newVolume: any) => {
+    newVolume = parseInt(newVolume); // Ensure newVolume is an integer
+    setVolume(newVolume);
+
+    if (playerRef.current && playerReady) {
+      playerRef.current.setVolume(newVolume);
+    }
+
+    // Mute if volume is 0, otherwise, store the current volume as tempVolume
+    if (newVolume === 0) {
+      handleMute();
+    } else {
+      setTempVolume(newVolume);
+    }
+  };
+
+  // Function to handle mute
+  const handleMute = () => {
+    if (volume > 0) {
+      setTempVolume(volume);
+    }
+    setVolume(0);
+    if (playerRef.current && playerReady) {
+      playerRef.current.setVolume(0);
+    }
+  };
+
+  // Function to handle unmute
+  const handleUnmute = () => {
+    const newVolume = Math.max(tempVolume, 10); // Use tempVolume or 10, whichever is greater
+    setVolume(newVolume);
+    if (playerRef.current && playerReady) {
+      playerRef.current.setVolume(newVolume);
+    }
+  };
 
   const loadVideo = (station: Station) => {
     setSelectedStation(station);
@@ -219,6 +259,19 @@ export default function RadioWheel({}: RadioWheelProps) {
             <div>{selectedStation.description}</div>
           </div>
         )}
+      </div>
+      {/* Volume Control Slider */}
+      <div className="volume-control flex flex-col" style={{ position: "fixed", top: "50px", right: "20px" }}>
+        {volume === 0 ? (
+          <button className="md:cursor-none" onClick={handleUnmute}>
+            Unmute
+          </button>
+        ) : (
+          <button className="md:cursor-none" onClick={handleMute}>
+            Mute
+          </button>
+        )}
+        <input type="range" min="0" max="100" value={volume} onChange={(e) => handleVolumeChange(e.target.value)} />
       </div>
     </main>
   );
