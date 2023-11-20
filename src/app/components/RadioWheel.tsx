@@ -181,8 +181,26 @@ export default function RadioWheel({}: RadioWheelProps) {
           }
         `}
       </style>
+      {/* Mobile Now Playing Bar */}
+      <div className="height-mobile md:hidden fixed top-0 left-0 w-full h-[100px] bg-black text-white flex items-center justify-center z-10">
+        {selectedStation && (
+          <div className="flex flex-row justify-start items-center w-full px-[25px]">
+            <img
+              src={`/radio_icons/${selectedStation.image}`}
+              alt={selectedStation.name}
+              className="rounded-full flex justify-center items-center m-2 w-11/12"
+              style={{ width: `${wheelRadius * 1.5}px`, height: `${wheelRadius * 1.5}px` }}
+            />
+            <div className="pl-[20px] text-start flex-col">
+              <div className="font-bold text-lg">{selectedStation.name}</div>
+              <div className="text-sm">{selectedStation.description}</div>
+              <div className="text-sm">now playing place holder ... tbc</div>
+            </div>
+          </div>
+        )}
+      </div>
       {/* Mobile Layout */}
-      <div className={`height-mobile md:hidden flex flex-col items-center justify-center gap-4 p-4`}>
+      <div className={`height-mobile md:hidden flex flex-col items-center justify-center gap-4 p-4 mt-[100px]`}>
         {stations.map((station) => {
           const imagePath = `/radio_icons/${station.image}`;
 
