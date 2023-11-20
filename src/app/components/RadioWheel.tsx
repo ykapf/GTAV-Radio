@@ -25,7 +25,7 @@ export default function RadioWheel({}: RadioWheelProps) {
   const [stations, setStations] = useState<Station[]>([]);
   const [selectedStation, setSelectedStation] = useState<Station | null>(null);
   const [hoveredStation, setHoveredStation] = useState<string | null>(null);
-  const wheelRadius = 400; // radius of the wheel in pixels
+  const wheelRadius = 40; // radius of the wheel in vw
 
   const playerRef = useRef<any>(null);
   const [playerReady, setPlayerReady] = useState(false);
@@ -101,7 +101,7 @@ export default function RadioWheel({}: RadioWheelProps) {
     const stationWidth = isHovered ? 110 : 100; // 110 when hovered, 100 otherwise
     const stationHeight = isHovered ? 110 : 100;
     return {
-      transform: `rotate(${angle}deg) translate(${wheelRadius}px) rotate(-${angle}deg) translate(-50%, -50%) scale(${isHovered ? 1.1 : 1})`,
+      transform: `rotate(${angle}deg) translate(${wheelRadius}vh) rotate(-${angle}deg) translate(-50%, -50%) scale(${isHovered ? 1.1 : 1})`,
       position: "absolute",
       top: "50%",
       left: "50%",
@@ -120,7 +120,49 @@ export default function RadioWheel({}: RadioWheelProps) {
 
   return (
     <main>
-      <div className="" style={{ position: "relative", width: `${wheelRadius * 2}px`, height: `${wheelRadius * 2}px` }}>
+      <style>
+        {`
+          @media screen and (max-height: 700px || max-width: 700px)  {
+            .height-mobile {
+              display: block;
+            }
+            .height-desktop {
+              display: none;
+            }
+          }
+
+          @media screen and (min-height: 701px || min-width: 701px) {
+            .height-mobile {
+              display: none;
+            }
+            .height-desktop {
+              display: block;
+            }
+          }
+        `}
+      </style>
+      {/* Mobile Layout */}
+      <div className={`height-mobile md:hidden flex flex-col items-center justify-center`}>
+        {stations.map((station) => {
+          const imagePath = `/radio_icons/${station.image}`;
+
+          return (
+            <button
+              key={station.name}
+              className="rounded-full flex justify-center items-center m-2 w-11/12"
+              style={{ width: `${wheelRadius * 2}px`, height: `${wheelRadius * 2}px` }}
+              onClick={() => {
+                loadVideo(station);
+              }}
+            >
+              <img src={imagePath} alt={station.description} className="max-w-full max-h-full" />
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Desktop Layout */}
+      <div className="height-desktop hidden md:flex" style={{ position: "relative", width: `${wheelRadius * 2}vh`, height: `${wheelRadius * 2}vh` }}>
         {stations.map((station, index) => {
           const angle = (90 + (360 / stations.length) * index) % 360;
           const isHovered = station.name === hoveredStation;
