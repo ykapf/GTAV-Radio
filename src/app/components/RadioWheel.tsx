@@ -261,14 +261,14 @@ export default function RadioWheel({}: RadioWheelProps) {
         )}
       </div>
       {/* Volume Control Slider */}
-      <div className="volume-control flex flex-col" style={{ position: "fixed", top: "50px", right: "20px" }}>
+      <div className="volume-control flex flex-col items-center justify-center gap-2" style={{ position: "fixed", top: "50px", right: "20px" }}>
         {volume === 0 ? (
           <button className="md:cursor-none" onClick={handleUnmute}>
-            Unmute
+            <img src="/mute.png" alt="Mute" style={{ width: "75px", height: "75px" }} />
           </button>
         ) : (
           <button className="md:cursor-none" onClick={handleMute}>
-            Mute
+            <img src="/unmute.png" alt="Unmute" style={{ width: "75px", height: "75px" }} />
           </button>
         )}
         <input type="range" min="0" max="100" value={volume} onChange={(e) => handleVolumeChange(e.target.value)} />
