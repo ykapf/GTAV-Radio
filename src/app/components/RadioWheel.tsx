@@ -35,6 +35,8 @@ export default function RadioWheel({}: RadioWheelProps) {
 
   const [isWheelVisible, setIsWheelVisible] = useState(true); // Default is true to show the wheel initially
 
+  const [currentSong, setCurrentSong] = useState("");
+
   useEffect(() => {
     // Load the YouTube IFrame Player API if not already loaded
     if (!window.YT) {
@@ -217,7 +219,7 @@ export default function RadioWheel({}: RadioWheelProps) {
             <div className="pl-[20px] text-start flex-col">
               <div className="font-bold text-lg">{selectedStation.name}</div>
               <div className="text-sm">{selectedStation.description}</div>
-              <div className="text-sm">now playing place holder ... tbc</div>
+              <div className="text-sm">current song placeholder</div>
             </div>
           </div>
         )}
@@ -273,7 +275,7 @@ export default function RadioWheel({}: RadioWheelProps) {
               <div className="pl-[20px] text-start flex-col">
                 <div className="font-bold text-lg">{selectedStation.name}</div>
                 <div className="text-sm">{selectedStation.description}</div>
-                <div className="text-sm">now playing place holder ... tbc</div>
+                <div className="text-sm">current song placeholder</div>
               </div>
             </div>
           )}
@@ -293,9 +295,13 @@ export default function RadioWheel({}: RadioWheelProps) {
               <input type="range" min="0" max="100" value={volume} onChange={(e) => handleVolumeChange(e.target.value)} />
             </div>
             {/* Toggle Switch for Desktop Mode */}
-            <div className="flex justify-center items-center  ">
-              <button onClick={toggleWheelVisibility} className="p-2 bg-gray-300 rounded cursor-none">
-                {isWheelVisible ? "List" : "Wheel"}
+            <div className="flex justify-center items-center pr-[10px] ">
+              <button
+                onClick={toggleWheelVisibility}
+                className="w-[65px] p-1 bg-gray-300 hover:bg-gray-500 rounded-full cursor-none transition delay-50 duration-150 "
+              >
+                {isWheelVisible ? "" : ""}
+                <div className="rounded-full bg-white w-[24px]"> .</div>
               </button>
             </div>
           </div>
@@ -396,6 +402,7 @@ export default function RadioWheel({}: RadioWheelProps) {
           >
             <div>{selectedStation.name}</div>
             <div>{selectedStation.description}</div>
+            <div>current song placeholder</div>
             {/* Volume Control Slider */}
             <div className={` hidden md:flex flex-row items-center justify-center gap-2    ${isWheelVisible ? "md:block" : "md:hidden"}  `}>
               {volume === 0 ? (
@@ -414,9 +421,13 @@ export default function RadioWheel({}: RadioWheelProps) {
       </div>
 
       {/* Toggle Switch for Desktop Mode */}
-      <div className={` hidden md:flex justify-center items-center fixed top-[28px] right-[2px]   ${isWheelVisible ? "md:block" : "md:hidden"}  `}>
-        <button onClick={toggleWheelVisibility} className="p-2 px-4 bg-gray-300 rounded cursor-none">
-          {isWheelVisible ? "List" : "Wheel"}
+      <div className={` hidden md:flex flex-col justify-center items-center fixed top-[34px] right-[10px]   ${isWheelVisible ? "md:block" : "md:hidden"}  `}>
+        <button
+          onClick={toggleWheelVisibility}
+          className="w-[65px] p-1 bg-green-500 hover:bg-green-700 rounded-full cursor-none transition delay-50 duration-150 flex justify-end items-center"
+        >
+          {isWheelVisible ? "" : "Wheel"}
+          <div className="rounded-full bg-white w-[24px]"> .</div>
         </button>
       </div>
     </main>
