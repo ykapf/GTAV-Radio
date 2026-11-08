@@ -41,7 +41,9 @@ html {
 }
 
 @media screen and (min-width: 640px) {
-  * {
-    cursor: none;
+  *,
+  *::before,
+  *::after {
+    cursor: none !important;
   }
 }
