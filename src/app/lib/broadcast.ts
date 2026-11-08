@@ -1019,4 +1019,5 @@ export const MIX_LENGTHS: Record<string, number> = {
   qAmAnyTdXog: 5079, // Blaine County Radio
   [COMMERCIALS_VIDEO]: COMMERCIALS_END, // GTA V Radio Commercials
   O6NoRNcu5Jk: 5185, // VCPR (GTA Vice City)
+  dXOzb0krq7g: 2892, // Integrity 2.0 (GTA IV)
 };

@@ -2,12 +2,12 @@
 
 ## Description
 
-This web application replicates the radio wheel from GTA V, allowing users to listen to the radio stations from GTA V, GTA III, GTA Vice City and GTA San Andreas online. The app streams radio content from YouTube, providing an authentic GTA V radio experience complete with all radio information and currently playing songs. To enhance realism, radios run on a shared clock like real broadcasts, so every listener hears the same song at the same moment, with optional GTA V ad breaks.
+This web application replicates the radio wheel from GTA V, allowing users to listen to the radio stations from GTA V, GTA IV (including Episodes from Liberty City), GTA San Andreas, GTA Vice City and GTA III online. The app streams radio content from YouTube, providing an authentic GTA V radio experience complete with all radio information and currently playing songs. To enhance realism, radios run on a shared clock like real broadcasts, so every listener hears the same song at the same moment, with optional GTA V ad breaks.
 
 ## Features
 
-- Stream radio stations from GTA V, GTA III, GTA Vice City and GTA San Andreas from YouTube.
-- Each game has its own page, picked from the dropdown in the top bar: GTA V on the home page, then `/gta-3`, `/vice-city` and `/san-andreas`.
+- Stream radio stations from GTA V, GTA IV, GTA San Andreas, GTA Vice City and GTA III from YouTube. GTA IV stations include their songs from The Lost and Damned and The Ballad of Gay Tony, plus Lazlow's talk station Integrity 2.0.
+- Each game has its own page, picked from the dropdown in the top bar: GTA V on the home page, then `/gta-4`, `/san-andreas`, `/vice-city` and `/gta-3`, listed newest to oldest.
 - Display current playing song and radio details.
 - Time-synced playback: no matter the device or how often you refresh, a station plays the same thing for everyone.
 - GTA V ad breaks between songs, which can be switched off (GTA V stations only).
@@ -73,9 +73,9 @@ This project is licensed under the MIT License.
 
 ## Acknowledgements
 
-- Grand Theft Auto, GTA V, GTA III, GTA Vice City and GTA San Andreas are trademarks of Rockstar Games. This project is a fan-made creation and is not affiliated with Rockstar Games.
+- Grand Theft Auto, GTA V, GTA IV, GTA San Andreas, GTA Vice City and GTA III are trademarks of Rockstar Games. This project is a fan-made creation and is not affiliated with Rockstar Games.
 - Radio content is streamed from YouTube and is subject to YouTube's terms of service.
 - Rockstar Games' copyright information regarding YouTube uploads can be found [here.](https://support.rockstargames.com/articles/204779558/Information-About-Being-Safe-From-Copyright-Strikes-When-Uploading-Rockstar-Editor-Videos)
 - Huge thanks to [GTA V Radio FM](https://www.youtube.com/@GtaVRadioFM/playlists) on YouTube, whose station playlists power the GTA V radios in this app.
-- Thanks to the YouTube uploaders whose playlists power the GTA III, Vice City and San Andreas stations.
+- Thanks to the YouTube uploaders whose playlists power the GTA IV, San Andreas, Vice City and GTA III stations, and to LPX Lonit for the Integrity 2.0 recording.
 - Station names, hosts and logos come from the [GTA Wiki](https://gta.fandom.com/).
