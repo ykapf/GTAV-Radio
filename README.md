@@ -2,13 +2,14 @@
 
 ## Description
 
-This web application replicates the radio wheel from GTA V, allowing users to listen to various GTA V radio stations online. The app streams radio content from YouTube, providing an authentic GTA V radio experience complete with all radio information and currently playing songs. To enhance realism, radios loop and start at random times, avoiding repetitive beginnings.
+This web application replicates the radio wheel from GTA V, allowing users to listen to various GTA V radio stations online. The app streams radio content from YouTube, providing an authentic GTA V radio experience complete with all radio information and currently playing songs. To enhance realism, radios run on a shared clock like real broadcasts, so every listener hears the same song at the same moment, with optional GTA V ad breaks.
 
 ## Features
 
 - Stream GTA V radio stations from YouTube.
 - Display current playing song and radio details.
-- Radio playback starts at a random point to simulate real radio experience.
+- Time-synced playback: no matter the device or how often you refresh, a station plays the same thing for everyone.
+- Ad breaks between songs, which can be switched off.
 - Elegant and responsive UI mimicking GTA V's style.
 
 ## Technologies Used
@@ -73,4 +74,4 @@ This project is licensed under the MIT License.
 - GTA V is a trademark of Rockstar Games. This project is a fan-made creation and is not affiliated with Rockstar Games.
 - Radio content is streamed from YouTube and is subject to YouTube's terms of service.
 - Rockstar Games' copyright information regarding YouTube uploads can be found [here.](https://support.rockstargames.com/articles/204779558/Information-About-Being-Safe-From-Copyright-Strikes-When-Uploading-Rockstar-Editor-Videos)
-- Gradient background is from [HyperColor](https://hypercolor.dev/).
+- Huge thanks to [GTA V Radio FM](https://www.youtube.com/@GtaVRadioFM/playlists) on YouTube, whose station playlists power most of the radios in this app.
