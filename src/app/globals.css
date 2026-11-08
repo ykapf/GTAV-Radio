@@ -35,6 +35,14 @@ html {
   overflow-x: hidden;
 }
 
+/* A hidden overflow turns html/body into a scroll box on iOS Safari, which stops the sticky top bar. */
+@media screen and (max-width: 767px) {
+  body,
+  html {
+    overflow-x: clip;
+  }
+}
+
 ::selection {
   background: rgb(var(--cream));
   color: rgb(var(--ink));
