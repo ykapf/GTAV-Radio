@@ -2,7 +2,9 @@
 
 import React, { useState, useEffect, CSSProperties, useRef, useCallback } from "react";
 import Papa from "papaparse";
-import { Broadcast, Item, MIX_LENGTHS, PLAYLIST_TRACKS, Slot, broadcastFor, loopOffset, nextSlot, radioNow, slotAt, syncRadioClock } from "../lib/broadcast";
+import { Broadcast, Item, MIX_LENGTHS, Slot, Track, broadcastFor, loopOffset, nextSlot, radioNow, slotAt, syncRadioClock } from "../lib/broadcast";
+import { GameId, gameById } from "../lib/games";
+import GamePicker from "./GamePicker";
 
 declare global {
   interface Window {
@@ -26,13 +28,21 @@ type Mode = "off" | "video" | "broadcast" | "playlist";
 /** The scheduled song or ad on air, and when this device asked YouTube for it. */
 type OnAir = { item: Item; startMs: number; loadedAt: number };
 
-type RadioWheelProps = {};
+type RadioWheelProps = {
+  game: GameId;
+  /** This game's song lists, keyed by playlist id. */
+  tracks: Record<string, Track[]>;
+  /** Playlist ids of talk stations, which keep their segments in order. */
+  talk?: string[];
+};
+
+/** The one radio on the page plays from its game's library; each game is its own page. */
+const library: { tracks: Record<string, Track[]>; talk: Set<string> } = { tracks: {}, talk: new Set() };
 
 const RADIO_OFF = "Radio Off";
 const ADS_STORAGE_KEY = "gtav-radio:ad-breaks";
 const VOLUME_STORAGE_KEY = "gtav-radio:volume";
 const MUTED_STORAGE_KEY = "gtav-radio:muted";
-const STATION_STORAGE_KEY = "gtav-radio:station";
 
 /** Storage can be blocked (private mode, strict settings); settings then just last for this visit. */
 function readSetting(key: string): string | null {
@@ -82,12 +92,12 @@ function videoIdOf(link: string): string | null {
 
 function modeOf(station: Station | null): Mode {
   if (!station || station.name === RADIO_OFF) return "off";
-  if (station.type === "p") return station.playlistId && PLAYLIST_TRACKS[station.playlistId] ? "broadcast" : "playlist";
+  if (station.type === "p") return station.playlistId && library.tracks[station.playlistId] ? "broadcast" : "playlist";
   return "video";
 }
 
 const broadcastOf = (station: Station | null, ads: boolean): Broadcast | null =>
-  station?.playlistId ? broadcastFor(station.playlistId, ads) : null;
+  station?.playlistId ? broadcastFor(station.playlistId, ads, library.tracks, library.talk.has(station.playlistId)) : null;
 
 function hasValidLink(station: Station) {
   const mode = modeOf(station);
@@ -375,11 +385,15 @@ function AdBreakButton({ on, onChange, className = "" }: Omit<AdBreakToggleProps
   );
 }
 
-export default function RadioWheel({}: RadioWheelProps) {
+export default function RadioWheel({ game: gameId, tracks, talk = [] }: RadioWheelProps) {
+  const game = gameById(gameId);
+  library.tracks = tracks;
+  library.talk = new Set(talk);
+
   const [stations, setStations] = useState<Station[]>([]);
   const [selectedStation, setSelectedStation] = useState<Station | null>(null);
   const [item, setItem] = useState<Item | null>(null);
-  const [adsOn, setAdsOn] = useState(true);
+  const [adsOn, setAdsOn] = useState(game.ads);
   const [invalid, setInvalid] = useState<string[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -396,7 +410,7 @@ export default function RadioWheel({}: RadioWheelProps) {
   const stationRef = useRef<Station | null>(null);
   /** What to fall back to when a picked station's link turns out to be dead. */
   const prevStationRef = useRef<Station | null>(null);
-  const adsRef = useRef(true);
+  const adsRef = useRef(game.ads);
   const currentRef = useRef<OnAir | null>(null);
   /** Set while a long mix is loading; it stays muted until the first PLAYING event has seeked onto the shared loop. */
   const pendingLoopSync = useRef(false);
@@ -532,7 +546,7 @@ export default function RadioWheel({}: RadioWheelProps) {
   };
 
   useEffect(() => {
-    if (readSetting(ADS_STORAGE_KEY) === "off") {
+    if (game.ads && readSetting(ADS_STORAGE_KEY) === "off") {
       adsRef.current = false;
       setAdsOn(false);
     }
@@ -546,11 +560,11 @@ export default function RadioWheel({}: RadioWheelProps) {
       mutedRef.current = true;
       setMuted(true);
     }
-  }, []);
+  }, [game.ads]);
 
   useEffect(() => {
-    if (selectedStation) saveSetting(STATION_STORAGE_KEY, selectedStation.name);
-  }, [selectedStation]);
+    if (selectedStation) saveSetting(game.stationKey, selectedStation.name);
+  }, [selectedStation, game.stationKey]);
 
   // Browsers often block sound until the visitor interacts, so a restored station may load silently; the first click or key press starts it.
   useEffect(() => {
@@ -705,25 +719,26 @@ export default function RadioWheel({}: RadioWheelProps) {
 
   useEffect(() => {
     async function fetchStations() {
-      const response = await fetch("/radio_list.csv");
+      const response = await fetch(game.stationList);
       const csv = await response.text();
       const parsedData = Papa.parse<Station>(csv, { header: true, skipEmptyLines: true, transform: (v) => v.trim() }).data;
       const list = parsedData.filter((s) => s.name);
       setStations(list);
       setInvalid(list.filter((s) => !hasValidLink(s)).map((s) => s.name));
-      const saved = list.find((s) => s.name === readSetting(STATION_STORAGE_KEY));
+      const saved = list.find((s) => s.name === readSetting(game.stationKey));
       if (saved && hasValidLink(saved) && !stationRef.current) tuneRef.current(saved, false);
     }
 
     fetchStations();
-  }, []);
+  }, [game.stationList, game.stationKey]);
 
   const stationCount = stations.filter((s) => s.name !== RADIO_OFF).length;
 
   // Icons sit just inside the wheel's edge, sized so neighbours almost touch: size = 0.95·π·(wheel − size) / count.
   const wheelStyle = {
     "--wheel": "min(calc(100vh - 9rem), 90vw, 920px)",
-    "--icon": `calc(var(--wheel) * 2.985 / (${Math.max(stations.length, 1)} + 2.985))`,
+    // Capped so a short station list doesn't grow icons into the centre text.
+    "--icon": `min(calc(var(--wheel) * 2.985 / (${Math.max(stations.length, 1)} + 2.985)), calc(var(--wheel) * 0.16))`,
     width: "var(--wheel)",
     height: "var(--wheel)",
   } as CSSProperties;
@@ -748,6 +763,7 @@ export default function RadioWheel({}: RadioWheelProps) {
   const onAirLabel = mode === "off" ? "Radio" : item?.ad ? "Ad break" : "Now playing";
   const trackLine = item?.title ?? (mode === "playlist" ? liveTitle : null);
   const showProgress = mode !== "off";
+  const showAds = mode === "broadcast" && game.ads;
 
   const volumeProps = { volume, muted, onToggleMute: toggleMute, onVolume: changeVolume };
   const adToggleProps = { on: adsOn, onChange: changeAds };
@@ -766,11 +782,11 @@ export default function RadioWheel({}: RadioWheelProps) {
   };
 
   return (
-    <div className="flex w-full flex-1 flex-col">
+    <div className="flex w-full flex-1 flex-col max-md:contents">
       {/* Top bar */}
       <header className="sticky top-0 z-20 border-b border-cream/20 bg-black">
         <div className="flex h-[4.5rem] items-center justify-between gap-6 px-6 md:px-12 lg:px-24">
-          <h1 className="font-headline text-3xl leading-none md:text-4xl">GTA V Radio</h1>
+          <GamePicker current={game} />
           <div className="flex items-center gap-4 md:gap-6">
             <VolumeControl {...volumeProps} className={selectedStation ? "hidden" : isWheelVisible ? "md:hidden" : ""} />
             <div role="group" aria-label="View" className="hidden border border-cream/25 md:flex">
@@ -806,7 +822,7 @@ export default function RadioWheel({}: RadioWheelProps) {
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-2 md:gap-3">
-                  {mode === "broadcast" && (
+                  {showAds && (
                     <>
                       <AdBreakButton {...adToggleProps} className="md:hidden" />
                       <div className="hidden md:block">
@@ -872,7 +888,7 @@ export default function RadioWheel({}: RadioWheelProps) {
             )}
             {noticeText && <div className="mt-4">{noticeText}</div>}
             <div className="mt-6 flex items-center gap-3">
-              {mode === "broadcast" && <AdBreakToggle {...adToggleProps} label="Ad breaks" />}
+              {showAds && <AdBreakToggle {...adToggleProps} label="Ad breaks" />}
               <VolumeControl {...volumeProps} placement="above" />
             </div>
           </div>

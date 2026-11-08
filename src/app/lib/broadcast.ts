@@ -861,6 +861,8 @@ function split(total: number, n: number, [min, max]: readonly [number, number], 
 export interface Broadcast {
   songs: Item[];
   ads: boolean;
+  /** Talk stations play their segments in order rather than shuffled. */
+  ordered: boolean;
   passes: number;
   /** Every program contains the same items, so its length is fixed and any moment maps straight to one. */
   length: number;
@@ -870,9 +872,9 @@ export interface Broadcast {
 
 const broadcasts: Record<string, Broadcast> = {};
 
-export function broadcastFor(playlistId: string, ads: boolean): Broadcast | null {
-  const tracks = PLAYLIST_TRACKS[playlistId];
-  if (!tracks) return null;
+export function broadcastFor(playlistId: string, ads: boolean, library: Record<string, Track[]>, ordered = false): Broadcast | null {
+  const tracks = library[playlistId];
+  if (!tracks?.length) return null;
   const key = `${playlistId}:${ads ? "ads" : "no-ads"}`;
   if (!broadcasts[key]) {
     const songs = tracks.map((t) => ({ videoId: t.id, title: t.title, start: 0, duration: t.duration, ad: false }));
@@ -880,6 +882,7 @@ export function broadcastFor(playlistId: string, ads: boolean): Broadcast | null
     broadcasts[key] = {
       songs,
       ads,
+      ordered,
       passes,
       length: passes * sum(songs) + (ads ? sum(AD_ITEMS) : 0),
       cachedProgram: -1,
@@ -894,7 +897,7 @@ function programFor(b: Broadcast, index: number): Item[] {
   if (index === b.cachedProgram) return b.cachedItems;
   const rand = mulberry32(index * 2654435761 + 0x5eed);
   const songs: Item[] = [];
-  for (let pass = 0; pass < b.passes; pass++) songs.push(...shuffled(b.songs, rand));
+  for (let pass = 0; pass < b.passes; pass++) songs.push(...(b.ordered ? b.songs : shuffled(b.songs, rand)));
   let items: Item[];
   if (!b.ads) {
     items = songs;
@@ -980,4 +983,5 @@ export const MIX_LENGTHS: Record<string, number> = {
   IhCFJnaYvnI: 5815, // West Coast Talk Radio
   qAmAnyTdXog: 5079, // Blaine County Radio
   [COMMERCIALS_VIDEO]: COMMERCIALS_END, // GTA V Radio Commercials
+  O6NoRNcu5Jk: 5185, // VCPR (GTA Vice City)
 };
