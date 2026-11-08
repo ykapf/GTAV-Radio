@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, CSSProperties, useRef, useCallback } from "react";
 import Papa from "papaparse";
-import { Broadcast, Item, PLAYLIST_TRACKS, Slot, broadcastFor, loopOffset, nextSlot, radioNow, slotAt, syncRadioClock } from "../lib/broadcast";
+import { Broadcast, Item, MIX_LENGTHS, PLAYLIST_TRACKS, Slot, broadcastFor, loopOffset, nextSlot, radioNow, slotAt, syncRadioClock } from "../lib/broadcast";
 
 declare global {
   interface Window {
@@ -23,15 +23,44 @@ type Station = {
 /** off: silence · video: one long mix on a shared loop · broadcast: a playlist on the synced schedule · playlist: a playlist with no known track list */
 type Mode = "off" | "video" | "broadcast" | "playlist";
 
+/** The scheduled song or ad on air, and when this device asked YouTube for it. */
+type OnAir = { item: Item; startMs: number; loadedAt: number };
+
 type RadioWheelProps = {};
 
 const RADIO_OFF = "Radio Off";
 const ADS_STORAGE_KEY = "gtav-radio:ad-breaks";
+const VOLUME_STORAGE_KEY = "gtav-radio:volume";
+const MUTED_STORAGE_KEY = "gtav-radio:muted";
+const STATION_STORAGE_KEY = "gtav-radio:station";
+
+/** Storage can be blocked (private mode, strict settings); settings then just last for this visit. */
+function readSetting(key: string): string | null {
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function saveSetting(key: string, value: string) {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {}
+}
 const INVALID_LINK = "Invalid link";
 const DRIFT_LIMIT_S = 2.5;
 const DRIFT_CHECK_MS = 10_000;
-const BOUNDARY_CHECK_MS = 1000;
+/** A freshly loaded video needs a moment to buffer before its position means anything. */
+const SETTLE_MS = 3000;
+/** Listed lengths are rounded, so an ENDED this close to the slot's end is the real end. */
+const END_SLACK_S = 3;
+/** `endSeconds` doesn't always fire ENDED, so a slot this far past its end moves on regardless. */
 const BOUNDARY_GRACE_S = 0.75;
+const WATCH_MS = 1000;
+const LOAD_TIMEOUT_MS = 8000;
+const MAX_RETRY_BACKOFF = 4;
+const STALL_CHECKS = 2;
 const MAX_SKIPS = 5;
 
 const VIDEO_ID = /^[A-Za-z0-9_-]{11}$/;
@@ -266,7 +295,7 @@ function clock(seconds: number) {
   return h ? `${h}:${pad2(m)}:${pad2(s % 60)}` : `${m}:${pad2(s % 60)}`;
 }
 
-/** Progress bar plus elapsed / total time for whatever is on air, read every frame from the player or the broadcast clock. */
+/** Progress bar plus elapsed / total time for whatever is on air, read every frame from the player. */
 function Progress({ getTiming, className = "" }: { getTiming: () => Timing; className?: string }) {
   const barRef = useRef<HTMLDivElement>(null);
   const elapsedRef = useRef<HTMLSpanElement>(null);
@@ -334,7 +363,7 @@ export default function RadioWheel({}: RadioWheelProps) {
 
   const [volume, setVolume] = useState(DEFAULT_VOLUME);
   const [muted, setMuted] = useState(false);
-  /** Title YouTube reports for a playlist we have no track list for. */
+  /** Title YouTube reports for the playlist song on air. */
   const [liveTitle, setLiveTitle] = useState<string | null>(null);
 
   const [isWheelVisible, setIsWheelVisible] = useState(true); // Default is true to show the wheel initially
@@ -345,10 +374,11 @@ export default function RadioWheel({}: RadioWheelProps) {
   const stationRef = useRef<Station | null>(null);
   /** What to fall back to when a picked station's link turns out to be dead. */
   const prevStationRef = useRef<Station | null>(null);
-  const currentRef = useRef<{ item: Item; startMs: number } | null>(null);
   const adsRef = useRef(true);
-  /** Set when a long mix is loaded; the first PLAYING event seeks it onto the shared loop. */
+  const currentRef = useRef<OnAir | null>(null);
+  /** Set while a long mix is loading; it stays muted until the first PLAYING event has seeked onto the shared loop. */
   const pendingLoopSync = useRef(false);
+  const retriesRef = useRef(0);
   const skipsRef = useRef(0);
   const volumeRef = useRef(volume);
   volumeRef.current = volume;
@@ -364,19 +394,41 @@ export default function RadioWheel({}: RadioWheelProps) {
     else player.unMute();
   }, []);
 
+  /** One request: YouTube loads the song or ad straight at the second the schedule is up to. */
   const playSlot = useCallback(
     (slot: Slot) => {
       if (modeOf(stationRef.current) !== "broadcast") return;
-      currentRef.current = { item: slot.item, startMs: slot.startMs };
+      currentRef.current = { item: slot.item, startMs: slot.startMs, loadedAt: Date.now() };
       setItem(slot.item);
       const player = playerRef.current;
       if (!player || !readyRef.current) return;
       const { videoId, start, duration, ad } = slot.item;
+      const offset = Math.min(Math.max(0, (radioNow() - slot.startMs) / 1000), Math.max(0, duration - 1));
       applySound();
-      player.loadVideoById({ videoId, startSeconds: start + Math.max(0, slot.offset), endSeconds: ad ? start + duration : undefined });
+      player.loadVideoById({ videoId, startSeconds: start + offset, endSeconds: ad ? start + duration : undefined });
     },
     [applySound],
   );
+
+  /** Joins whatever the station's schedule has on air right now. */
+  const playNow = useCallback(() => {
+    const b = broadcastOf(stationRef.current, adsRef.current);
+    if (b) playSlot(slotAt(b, radioNow()));
+  }, [playSlot]);
+
+  /** Re-seeks only once the video has settled and this device has clearly wandered from the schedule. */
+  const checkDrift = useCallback(() => {
+    const player = playerRef.current;
+    const cur = currentRef.current;
+    if (!player || !readyRef.current || !cur || modeOf(stationRef.current) !== "broadcast") return;
+    const expected = (radioNow() - cur.startMs) / 1000;
+    if (expected >= cur.item.duration || expected < -(END_SLACK_S + 1)) return playNow();
+    if (expected < 0 || Date.now() - cur.loadedAt < SETTLE_MS) return;
+    if (player.getPlayerState?.() !== window.YT?.PlayerState?.PLAYING) return;
+    if (player.getVideoData?.()?.video_id !== cur.item.videoId) return;
+    const actual = (player.getCurrentTime?.() ?? 0) - cur.item.start;
+    if (Math.abs(actual - expected) > DRIFT_LIMIT_S) player.seekTo(cur.item.start + expected, true);
+  }, [playNow]);
 
   /** How far into the current song, ad or mix we are. */
   const getTiming = useCallback((): Timing => {
@@ -390,21 +442,6 @@ export default function RadioWheel({}: RadioWheelProps) {
     return { elapsed: player.getCurrentTime?.() ?? 0, duration: player.getDuration?.() ?? 0 };
   }, []);
 
-  /** Re-seeks if this device has wandered from the broadcast clock. */
-  const checkDrift = useCallback(() => {
-    const player = playerRef.current;
-    const cur = currentRef.current;
-    const b = broadcastOf(stationRef.current, adsRef.current);
-    if (!player || !readyRef.current || !cur || !b || modeOf(stationRef.current) !== "broadcast") return;
-    const expected = (radioNow() - cur.startMs) / 1000;
-    if (expected >= cur.item.duration) {
-      playSlot(slotAt(b, radioNow()));
-      return;
-    }
-    const actual = (player.getCurrentTime?.() ?? 0) - cur.item.start;
-    if (Math.abs(actual - expected) > DRIFT_LIMIT_S) player.seekTo(cur.item.start + Math.max(0, expected), true);
-  }, [playSlot]);
-
   /** Puts a station on air, joining wherever its shared clock says it is right now. */
   const tune = useCallback(
     (station: Station | null, remember = true) => {
@@ -415,20 +452,28 @@ export default function RadioWheel({}: RadioWheelProps) {
       const ready = player && readyRef.current;
       const mode = modeOf(station);
       pendingLoopSync.current = false;
+      retriesRef.current = 0;
+      skipsRef.current = 0;
+      currentRef.current = null;
+      setItem(null);
       setLiveTitle(null);
-      if (mode !== "broadcast") {
-        currentRef.current = null;
-        setItem(null);
-      }
       if (mode === "broadcast") {
-        const b = broadcastOf(stationRef.current, adsRef.current);
-        if (b) playSlot(slotAt(b, radioNow()));
+        playNow();
       } else if (mode === "video" && station) {
-        pendingLoopSync.current = true;
-        if (ready) {
-          // Muted until the first PLAYING event has seeked onto the shared loop, so the top of the mix never leaks out.
-          player.mute();
-          player.loadVideoById({ videoId: videoIdOf(station.link), startSeconds: 0 });
+        const videoId = videoIdOf(station.link);
+        const length = videoId ? MIX_LENGTHS[videoId] : undefined;
+        if (length) {
+          if (ready) {
+            applySound();
+            player.loadVideoById({ videoId, startSeconds: loopOffset(length) });
+          }
+        } else {
+          pendingLoopSync.current = true;
+          if (ready) {
+            // Muted until the first PLAYING event has seeked onto the shared loop, so the top of the mix never leaks out.
+            player.mute();
+            player.loadVideoById({ videoId, startSeconds: 0 });
+          }
         }
       } else if (mode === "playlist" && station) {
         if (ready) {
@@ -439,7 +484,7 @@ export default function RadioWheel({}: RadioWheelProps) {
         player.stopVideo();
       }
     },
-    [playSlot, applySound],
+    [playNow, applySound],
   );
   const tuneRef = useRef(tune);
   tuneRef.current = tune;
@@ -460,24 +505,47 @@ export default function RadioWheel({}: RadioWheelProps) {
   const changeAds = (on: boolean) => {
     setAdsOn(on);
     adsRef.current = on;
-    try {
-      window.localStorage.setItem(ADS_STORAGE_KEY, on ? "on" : "off");
-    } catch {
-      // Storage can be blocked; the choice still holds for this visit.
-    }
-    const b = broadcastOf(stationRef.current, adsRef.current);
-    if (b && modeOf(stationRef.current) === "broadcast") playSlot(slotAt(b, radioNow()));
+    saveSetting(ADS_STORAGE_KEY, on ? "on" : "off");
+    if (modeOf(stationRef.current) === "broadcast") playNow();
   };
 
   useEffect(() => {
-    try {
-      if (window.localStorage.getItem(ADS_STORAGE_KEY) === "off") {
-        adsRef.current = false;
-        setAdsOn(false);
-      }
-    } catch {
-      // Keep the default (ad breaks on).
+    if (readSetting(ADS_STORAGE_KEY) === "off") {
+      adsRef.current = false;
+      setAdsOn(false);
     }
+    const savedVolume = Number(readSetting(VOLUME_STORAGE_KEY));
+    if (readSetting(VOLUME_STORAGE_KEY) !== null && Number.isFinite(savedVolume)) {
+      const value = Math.min(100, Math.max(0, Math.round(savedVolume)));
+      volumeRef.current = value;
+      setVolume(value);
+    }
+    if (readSetting(MUTED_STORAGE_KEY) === "true") {
+      mutedRef.current = true;
+      setMuted(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (selectedStation) saveSetting(STATION_STORAGE_KEY, selectedStation.name);
+  }, [selectedStation]);
+
+  // Browsers often block sound until the visitor interacts, so a restored station may load silently; the first click or key press starts it.
+  useEffect(() => {
+    const stop = () => {
+      window.removeEventListener("pointerdown", resume, true);
+      window.removeEventListener("keydown", resume, true);
+    };
+    const resume = () => {
+      const player = playerRef.current;
+      if (!player || !readyRef.current) return;
+      stop();
+      if (!stationRef.current || modeOf(stationRef.current) === "off") return;
+      if (player.getPlayerState?.() !== window.YT?.PlayerState?.PLAYING) tuneRef.current(stationRef.current, false);
+    };
+    window.addEventListener("pointerdown", resume, true);
+    window.addEventListener("keydown", resume, true);
+    return stop;
   }, []);
 
   useEffect(() => {
@@ -485,7 +553,12 @@ export default function RadioWheel({}: RadioWheelProps) {
     const host = document.createElement("div");
     hostRef.current?.appendChild(host);
 
-    Promise.all([loadYouTubeApi(), syncRadioClock()]).then(([YT]) => {
+    // The player starts as soon as YouTube's script is in; the server clock correction lands whenever it's ready.
+    syncRadioClock().then(() => {
+      if (!cancelled) checkDrift();
+    });
+
+    loadYouTubeApi().then((YT) => {
       if (cancelled) return;
       playerRef.current = new YT.Player(host, {
         width: 1,
@@ -499,26 +572,27 @@ export default function RadioWheel({}: RadioWheelProps) {
           },
           onStateChange: (e: any) => {
             const mode = modeOf(stationRef.current);
+            const player = e.target;
             if (e.data === YT.PlayerState.PLAYING) {
+              retriesRef.current = 0;
               skipsRef.current = 0;
               if (mode === "broadcast") checkDrift();
-              else if (mode === "playlist") setLiveTitle(e.target.getVideoData?.()?.title || null);
+              else if (mode === "playlist") setLiveTitle(player.getVideoData?.()?.title || null);
               else if (mode === "video" && pendingLoopSync.current) {
                 pendingLoopSync.current = false;
-                e.target.seekTo(loopOffset(e.target.getDuration?.() ?? 0), true);
+                player.seekTo(loopOffset(player.getDuration?.() ?? 0), true);
                 applySound();
               }
             } else if (e.data === YT.PlayerState.ENDED && mode === "video") {
-              e.target.seekTo(0, true);
-              e.target.playVideo();
+              if (pendingLoopSync.current || (player.getCurrentTime?.() ?? 0) < (player.getDuration?.() ?? 0) - END_SLACK_S) return;
+              player.seekTo(0, true);
+              player.playVideo();
             } else if (e.data === YT.PlayerState.ENDED && mode === "broadcast") {
-              const b = broadcastOf(stationRef.current, adsRef.current);
-              if (!b) return;
               const cur = currentRef.current;
-              const now = slotAt(b, radioNow());
-              // Listed durations are rounded, so a track can end just before its slot does.
-              const sameSlot = cur && now.item === cur.item && Math.abs(now.startMs - cur.startMs) < 5000;
-              playSlot(sameSlot ? nextSlot(b, now) : now);
+              const b = broadcastOf(stationRef.current, adsRef.current);
+              // Loading a video straight after another fires a stale ENDED at 0:00; only one near the slot's end is real.
+              if (!cur || !b || (radioNow() - cur.startMs) / 1000 < cur.item.duration - END_SLACK_S) return;
+              playSlot(nextSlot(b, { item: cur.item, startMs: cur.startMs, offset: 0 }));
             }
           },
           onError: () => {
@@ -533,7 +607,7 @@ export default function RadioWheel({}: RadioWheelProps) {
               tuneRef.current(back, false);
               return;
             }
-            // One dead song shouldn't take the whole broadcast down: skip ahead to the next item.
+            // One dead song shouldn't take the whole station down: play the next item, then rejoin the schedule after it.
             const cur = currentRef.current;
             const b = broadcastOf(stationRef.current, adsRef.current);
             if (mode !== "broadcast" || !cur || !b || skipsRef.current >= MAX_SKIPS) return;
@@ -545,16 +619,37 @@ export default function RadioWheel({}: RadioWheelProps) {
       });
     });
 
+    // Moves on at slot boundaries, reloads a song YouTube never started, and un-pauses one it left paused.
+    let stalled = 0;
+    const watch = window.setInterval(() => {
+      const player = playerRef.current;
+      const YT = window.YT;
+      const mode = modeOf(stationRef.current);
+      if (!player || !readyRef.current || !YT || mode === "off") return;
+      const state = player.getPlayerState?.();
+      const cur = currentRef.current;
+      if (mode === "broadcast" && cur) {
+        if ((radioNow() - cur.startMs) / 1000 >= cur.item.duration + BOUNDARY_GRACE_S) {
+          stalled = 0;
+          return playNow();
+        }
+        // YouTube can throttle a burst of loads for a while; keep retrying, further apart each time.
+        const wait = LOAD_TIMEOUT_MS * Math.min(2 ** retriesRef.current, MAX_RETRY_BACKOFF);
+        if (state !== YT.PlayerState.PLAYING && Date.now() - cur.loadedAt > wait) {
+          retriesRef.current += 1;
+          stalled = 0;
+          return playNow();
+        }
+      }
+      stalled = state === YT.PlayerState.PAUSED || state === YT.PlayerState.CUED ? stalled + 1 : 0;
+      if (stalled >= STALL_CHECKS) {
+        stalled = 0;
+        player.playVideo();
+      }
+    }, WATCH_MS);
     const drift = window.setInterval(() => {
       if (!document.hidden) checkDrift();
     }, DRIFT_CHECK_MS);
-    // Ads are cut out of one long video with `endSeconds`, which doesn't always fire ENDED on time.
-    const boundary = window.setInterval(() => {
-      const cur = currentRef.current;
-      const b = broadcastOf(stationRef.current, adsRef.current);
-      if (!cur || !b || modeOf(stationRef.current) !== "broadcast") return;
-      if ((radioNow() - cur.startMs) / 1000 >= cur.item.duration + BOUNDARY_GRACE_S) playSlot(slotAt(b, radioNow()));
-    }, BOUNDARY_CHECK_MS);
     const onVisible = () => {
       if (!document.hidden) checkDrift();
     };
@@ -562,25 +657,27 @@ export default function RadioWheel({}: RadioWheelProps) {
 
     return () => {
       cancelled = true;
+      window.clearInterval(watch);
       window.clearInterval(drift);
-      window.clearInterval(boundary);
       document.removeEventListener("visibilitychange", onVisible);
       playerRef.current?.destroy?.();
       playerRef.current = null;
       readyRef.current = false;
       host.remove();
     };
-  }, [checkDrift, playSlot, applySound]);
+  }, [applySound, checkDrift, playNow, playSlot]);
 
   const changeVolume = (value: number) => {
     volumeRef.current = value;
     setVolume(value);
+    saveSetting(VOLUME_STORAGE_KEY, String(value));
     applySound();
   };
 
   const toggleMute = () => {
     mutedRef.current = !mutedRef.current;
     setMuted(mutedRef.current);
+    saveSetting(MUTED_STORAGE_KEY, String(mutedRef.current));
     applySound();
   };
 
@@ -592,6 +689,8 @@ export default function RadioWheel({}: RadioWheelProps) {
       const list = parsedData.filter((s) => s.name);
       setStations(list);
       setInvalid(list.filter((s) => !hasValidLink(s)).map((s) => s.name));
+      const saved = list.find((s) => s.name === readSetting(STATION_STORAGE_KEY));
+      if (saved && hasValidLink(saved) && !stationRef.current) tuneRef.current(saved, false);
     }
 
     fetchStations();
@@ -625,7 +724,7 @@ export default function RadioWheel({}: RadioWheelProps) {
 
   const mode = modeOf(selectedStation);
   const onAirLabel = mode === "off" ? "Radio" : item?.ad ? "Ad break" : "Now playing";
-  const trackLine = mode === "broadcast" ? item?.title ?? null : mode === "playlist" ? liveTitle : null;
+  const trackLine = item?.title ?? (mode === "playlist" ? liveTitle : null);
   const showProgress = mode !== "off";
 
   const volumeProps = { volume, muted, onToggleMute: toggleMute, onVolume: changeVolume };

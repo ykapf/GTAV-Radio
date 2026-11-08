@@ -974,3 +974,10 @@ export function radioNow(): number {
 
 /** Long mixes have no published schedule, so everyone joins at the same point of a clock-derived loop. */
 export const loopOffset = (duration: number) => (duration > 0 ? (radioNow() / 1000) % duration : 0);
+
+/** Lengths of the single-video stations, so they load straight onto the shared loop; unlisted ones seek there once playing. */
+export const MIX_LENGTHS: Record<string, number> = {
+  IhCFJnaYvnI: 5815, // West Coast Talk Radio
+  qAmAnyTdXog: 5079, // Blaine County Radio
+  [COMMERCIALS_VIDEO]: COMMERCIALS_END, // GTA V Radio Commercials
+};
