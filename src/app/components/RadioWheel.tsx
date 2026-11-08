@@ -353,6 +353,28 @@ function AdBreakToggle({ on, onChange, label, className = "" }: AdBreakTogglePro
   );
 }
 
+/** Square one-tap ad breaks switch for small screens, styled like the mute button; struck through when off. */
+function AdBreakButton({ on, onChange, className = "" }: Omit<AdBreakToggleProps, "label">) {
+  return (
+    <button
+      type="button"
+      aria-pressed={on}
+      aria-label={on ? "Ad breaks on. Turn off" : "Ad breaks off. Turn on"}
+      onClick={() => onChange(!on)}
+      className={`relative flex h-12 w-12 shrink-0 items-center justify-center border border-cream text-cream transition-colors duration-150 hover:bg-cream hover:text-black focus-visible:bg-cream focus-visible:text-black focus-visible:outline-none motion-reduce:transition-none ${className}`}
+    >
+      <span aria-hidden="true" className={`text-[11px] font-bold uppercase leading-none tracking-[0.1em] ${on ? "" : "opacity-60"}`}>
+        Ads
+      </span>
+      {!on && (
+        <svg aria-hidden="true" viewBox="0 0 48 48" className="pointer-events-none absolute inset-0 h-full w-full">
+          <line x1="10" y1="38" x2="38" y2="10" stroke="currentColor" strokeWidth="2" strokeLinecap="square" />
+        </svg>
+      )}
+    </button>
+  );
+}
+
 export default function RadioWheel({}: RadioWheelProps) {
   const [stations, setStations] = useState<Station[]>([]);
   const [selectedStation, setSelectedStation] = useState<Station | null>(null);
@@ -771,8 +793,8 @@ export default function RadioWheel({}: RadioWheelProps) {
         {(selectedStation || notice) && (
           <div className={`space-y-2 border-t border-cream/10 px-6 py-3 md:px-12 lg:px-24 ${isWheelVisible ? "md:hidden" : ""}`}>
             {selectedStation && (
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                <div className="flex min-w-0 flex-1 items-center gap-4">
+              <div className="flex items-center gap-x-3 gap-y-2 md:flex-wrap md:gap-x-4">
+                <div className="flex min-w-0 flex-1 items-center gap-3 md:gap-4">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={iconPath(selectedStation)} alt="" width={40} height={40} className="h-10 w-10 shrink-0 object-contain" />
                   <div className="min-w-0">
@@ -783,8 +805,15 @@ export default function RadioWheel({}: RadioWheelProps) {
                     </p>
                   </div>
                 </div>
-                <div className="flex shrink-0 items-center gap-3">
-                  {mode === "broadcast" && <AdBreakToggle {...adToggleProps} label="Ad breaks" />}
+                <div className="flex shrink-0 items-center gap-2 md:gap-3">
+                  {mode === "broadcast" && (
+                    <>
+                      <AdBreakButton {...adToggleProps} className="md:hidden" />
+                      <div className="hidden md:block">
+                        <AdBreakToggle {...adToggleProps} label="Ad breaks" />
+                      </div>
+                    </>
+                  )}
                   <VolumeControl {...volumeProps} />
                 </div>
               </div>
