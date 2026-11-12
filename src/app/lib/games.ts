@@ -1,4 +1,4 @@
-export type GameId = "gta-v" | "gta-3" | "vice-city" | "san-andreas" | "gta-4";
+export type GameId = "gta-6" | "gta-v" | "gta-3" | "vice-city" | "san-andreas" | "gta-4";
 
 export interface Game {
   id: GameId;
@@ -13,7 +13,8 @@ export interface Game {
 }
 
 export const GAMES: Game[] = [
-  { id: "gta-v", title: "GTA V Radio", href: "/", stationList: "/radio_list.csv", ads: true, stationKey: "gtav-radio:station" },
+  { id: "gta-6", title: "GTA VI Radio", href: "/gta-6", stationList: "/radio_list_gta-6.csv", ads: false, stationKey: "gtav-radio:station:gta-6" },
+  { id: "gta-v", title: "GTA V Radio", href: "/gta-5", stationList: "/radio_list.csv", ads: true, stationKey: "gtav-radio:station" },
   { id: "gta-4", title: "GTA IV Radio", href: "/gta-4", stationList: "/radio_list_gta-4.csv", ads: false, stationKey: "gtav-radio:station:gta-4" },
   {
     id: "san-andreas",
@@ -27,4 +28,4 @@ export const GAMES: Game[] = [
   { id: "gta-3", title: "GTA III Radio", href: "/gta-3", stationList: "/radio_list_gta-3.csv", ads: false, stationKey: "gtav-radio:station:gta-3" },
 ];
 
-export const gameById = (id: GameId) => GAMES.find((g) => g.id === id) ?? GAMES[0];
+export const gameById = (id: GameId) => GAMES.find((g) => g.id === id) ?? GAMES.find((g) => g.id === "gta-v")!;

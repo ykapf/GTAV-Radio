@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, CSSProperties, useRef, useCallback } from "react";
+import React, { useState, useEffect, CSSProperties, ReactNode, useRef, useCallback } from "react";
 import Papa from "papaparse";
 import { Broadcast, Item, MIX_LENGTHS, Slot, Track, broadcastFor, loopOffset, nextSlot, radioNow, slotAt, syncRadioClock } from "../lib/broadcast";
 import { GameId, gameById } from "../lib/games";
@@ -18,12 +18,12 @@ type Station = {
   description: string;
   image: string;
   link: string;
-  type: "v" | "p"; // "v" is a single long video, "p" is a playlist
+  type: "v" | "p" | "a"; // "v" is a single long video, "p" is a playlist, "a" is an audio file in /public
   playlistId?: string;
 };
 
-/** off: silence · video: one long mix on a shared loop · broadcast: a playlist on the synced schedule · playlist: a playlist with no known track list */
-type Mode = "off" | "video" | "broadcast" | "playlist";
+/** off: silence · video: one long mix on a shared loop · broadcast: a playlist on the synced schedule · playlist: a playlist with no known track list · audio: a hosted audio file on a shared loop */
+type Mode = "off" | "video" | "broadcast" | "playlist" | "audio";
 
 /** The scheduled song or ad on air, and when this device asked YouTube for it. */
 type OnAir = { item: Item; startMs: number; loadedAt: number };
@@ -34,6 +34,10 @@ type RadioWheelProps = {
   tracks: Record<string, Track[]>;
   /** Playlist ids of talk stations, which keep their segments in order. */
   talk?: string[];
+  /** Songs heard in each station's preview, keyed by station name. */
+  previews?: Record<string, string[]>;
+  /** Shown between the top bar and the radio. */
+  banner?: ReactNode;
 };
 
 /** The one radio on the page plays from its game's library; each game is its own page. */
@@ -92,6 +96,7 @@ function videoIdOf(link: string): string | null {
 
 function modeOf(station: Station | null): Mode {
   if (!station || station.name === RADIO_OFF) return "off";
+  if (station.type === "a") return "audio";
   if (station.type === "p") return station.playlistId && library.tracks[station.playlistId] ? "broadcast" : "playlist";
   return "video";
 }
@@ -103,6 +108,7 @@ function hasValidLink(station: Station) {
   const mode = modeOf(station);
   if (mode === "off") return true;
   if (mode === "video") return videoIdOf(station.link) !== null;
+  if (mode === "audio") return station.link.startsWith("/");
   return PLAYLIST_ID.test(station.playlistId ?? "");
 }
 
@@ -385,7 +391,7 @@ function AdBreakButton({ on, onChange, className = "" }: Omit<AdBreakToggleProps
   );
 }
 
-export default function RadioWheel({ game: gameId, tracks, talk = [] }: RadioWheelProps) {
+export default function RadioWheel({ game: gameId, tracks, talk = [], previews, banner }: RadioWheelProps) {
   const game = gameById(gameId);
   library.tracks = tracks;
   library.talk = new Set(talk);
@@ -406,6 +412,8 @@ export default function RadioWheel({ game: gameId, tracks, talk = [] }: RadioWhe
 
   const hostRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
+  /** Plays the hosted audio stations; YouTube handles everything else. */
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const readyRef = useRef(false);
   const stationRef = useRef<Station | null>(null);
   /** What to fall back to when a picked station's link turns out to be dead. */
@@ -423,6 +431,11 @@ export default function RadioWheel({ game: gameId, tracks, talk = [] }: RadioWhe
 
   /** Pushes the current volume and mute state to the player; a mix stays silent until it has joined the shared loop. */
   const applySound = useCallback(() => {
+    const audio = audioRef.current;
+    if (audio) {
+      audio.volume = volumeRef.current / 100;
+      audio.muted = mutedRef.current || pendingLoopSync.current;
+    }
     const player = playerRef.current;
     if (!player || !readyRef.current) return;
     player.setVolume(volumeRef.current);
@@ -454,6 +467,14 @@ export default function RadioWheel({ game: gameId, tracks, talk = [] }: RadioWhe
 
   /** Re-seeks only once the video has settled and this device has clearly wandered from the schedule. */
   const checkDrift = useCallback(() => {
+    const audio = audioRef.current;
+    if (modeOf(stationRef.current) === "audio") {
+      if (!audio || audio.paused || pendingLoopSync.current || !(audio.duration > 0)) return;
+      const expected = loopOffset(audio.duration);
+      const gap = Math.abs(audio.currentTime - expected);
+      if (Math.min(gap, audio.duration - gap) > DRIFT_LIMIT_S) audio.currentTime = expected;
+      return;
+    }
     const player = playerRef.current;
     const cur = currentRef.current;
     if (!player || !readyRef.current || !cur || modeOf(stationRef.current) !== "broadcast") return;
@@ -472,6 +493,10 @@ export default function RadioWheel({ game: gameId, tracks, talk = [] }: RadioWhe
     if (mode === "broadcast") {
       const cur = currentRef.current;
       return cur ? { elapsed: (radioNow() - cur.startMs) / 1000, duration: cur.item.duration } : null;
+    }
+    if (mode === "audio") {
+      const audio = audioRef.current;
+      return audio && !pendingLoopSync.current && audio.duration > 0 ? { elapsed: audio.currentTime, duration: audio.duration } : null;
     }
     const player = playerRef.current;
     if (mode === "off" || pendingLoopSync.current || !player || !readyRef.current) return null;
@@ -493,7 +518,22 @@ export default function RadioWheel({ game: gameId, tracks, talk = [] }: RadioWhe
       currentRef.current = null;
       setItem(null);
       setLiveTitle(null);
-      if (mode === "broadcast") {
+      const audio = audioRef.current;
+      if (audio && mode !== "audio") {
+        audio.pause();
+        audio.removeAttribute("src");
+        audio.load();
+      }
+      if (mode === "audio" && station) {
+        if (ready) player.stopVideo();
+        if (audio) {
+          // Muted until the file's length is known and it has jumped onto the shared loop.
+          pendingLoopSync.current = true;
+          applySound();
+          audio.src = station.link;
+          audio.load();
+        }
+      } else if (mode === "broadcast") {
         playNow();
       } else if (mode === "video" && station) {
         const videoId = videoIdOf(station.link);
@@ -573,6 +613,12 @@ export default function RadioWheel({ game: gameId, tracks, talk = [] }: RadioWhe
       window.removeEventListener("keydown", resume, true);
     };
     const resume = () => {
+      const audio = audioRef.current;
+      if (modeOf(stationRef.current) === "audio" && audio) {
+        stop();
+        if (audio.paused) audio.play().catch(() => {});
+        return;
+      }
       const player = playerRef.current;
       if (!player || !readyRef.current) return;
       stop();
@@ -589,6 +635,30 @@ export default function RadioWheel({ game: gameId, tracks, talk = [] }: RadioWhe
     const host = document.createElement("div");
     hostRef.current?.appendChild(host);
 
+    const audio = new Audio();
+    audio.preload = "auto";
+    audio.loop = true;
+    audioRef.current = audio;
+    const onAudioReady = () => {
+      if (modeOf(stationRef.current) !== "audio" || !pendingLoopSync.current) return;
+      audio.currentTime = loopOffset(audio.duration);
+      pendingLoopSync.current = false;
+      applySound();
+      audio.play().catch(() => {});
+    };
+    const onAudioError = () => {
+      const failed = stationRef.current;
+      if (!failed || modeOf(failed) !== "audio" || !audio.getAttribute("src")) return;
+      pendingLoopSync.current = false;
+      markInvalid(failed.name);
+      setNotice(failed.name);
+      const back = prevStationRef.current && prevStationRef.current.name !== failed.name ? prevStationRef.current : null;
+      tuneRef.current(back, false);
+    };
+    audio.addEventListener("loadedmetadata", onAudioReady);
+    audio.addEventListener("error", onAudioError);
+    if (modeOf(stationRef.current) === "audio") tuneRef.current(stationRef.current, false);
+
     // The player starts as soon as YouTube's script is in; the server clock correction lands whenever it's ready.
     syncRadioClock().then(() => {
       if (!cancelled) checkDrift();
@@ -604,7 +674,7 @@ export default function RadioWheel({ game: gameId, tracks, talk = [] }: RadioWhe
           onReady: () => {
             readyRef.current = true;
             applySound();
-            if (stationRef.current) tuneRef.current(stationRef.current, false);
+            if (stationRef.current && modeOf(stationRef.current) !== "audio") tuneRef.current(stationRef.current, false);
           },
           onStateChange: (e: any) => {
             const mode = modeOf(stationRef.current);
@@ -661,6 +731,11 @@ export default function RadioWheel({ game: gameId, tracks, talk = [] }: RadioWhe
       const player = playerRef.current;
       const YT = window.YT;
       const mode = modeOf(stationRef.current);
+      if (mode === "audio") {
+        // Only resumes once the browser has let sound start; a blocked autoplay waits for the first click instead.
+        if (audio.paused && !pendingLoopSync.current && audio.readyState >= 2) audio.play().catch(() => {});
+        return;
+      }
       if (!player || !readyRef.current || !YT || mode === "off") return;
       const state = player.getPlayerState?.();
       const cur = currentRef.current;
@@ -698,6 +773,11 @@ export default function RadioWheel({ game: gameId, tracks, talk = [] }: RadioWhe
       document.removeEventListener("visibilitychange", onVisible);
       playerRef.current?.destroy?.();
       playerRef.current = null;
+      audio.removeEventListener("loadedmetadata", onAudioReady);
+      audio.removeEventListener("error", onAudioError);
+      audio.pause();
+      audio.removeAttribute("src");
+      audioRef.current = null;
       readyRef.current = false;
       host.remove();
     };
@@ -757,10 +837,13 @@ export default function RadioWheel({ game: gameId, tracks, talk = [] }: RadioWhe
   };
 
   const isSelected = (station: Station) => selectedStation?.name === station.name;
+  /** Hosted-audio stations use full-bleed square station art rather than a cut-out logo. */
+  const isTile = (station: Station) => station.type === "a";
+  const previewStations = previews ? stations.filter((s) => previews[s.name]) : [];
   const isInvalid = (station: Station) => invalid.includes(station.name);
 
   const mode = modeOf(selectedStation);
-  const onAirLabel = mode === "off" ? "Radio" : item?.ad ? "Ad break" : "Now playing";
+  const onAirLabel = mode === "off" ? "Radio" : mode === "audio" ? "Station preview" : item?.ad ? "Ad break" : "Now playing";
   const trackLine = item?.title ?? (mode === "playlist" ? liveTitle : null);
   const showProgress = mode !== "off";
   const showAds = mode === "broadcast" && game.ads;
@@ -840,6 +923,8 @@ export default function RadioWheel({ game: gameId, tracks, talk = [] }: RadioWhe
         )}
       </header>
 
+      {banner}
+
       {/* Wheel view (desktop) */}
       <section aria-label="Radio wheel" className={`${isWheelVisible ? "md:flex" : ""} hidden min-h-[calc(100vh-4.5rem)] items-center justify-center px-8 py-8`}>
         <div className="relative" style={wheelStyle}>
@@ -863,7 +948,7 @@ export default function RadioWheel({ game: gameId, tracks, talk = [] }: RadioWhe
                 style={getStationStyle(index)}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={iconPath(station)} alt="" className="h-full w-full object-contain" />
+                <img src={iconPath(station)} alt="" className={`h-full w-full ${isTile(station) ? "rounded-full object-cover" : "object-contain"}`} />
               </button>
             );
           })}
@@ -936,6 +1021,46 @@ export default function RadioWheel({ game: gameId, tracks, talk = [] }: RadioWhe
           })}
         </ul>
       </section>
+
+      {previewStations.length > 0 && (
+        <section aria-labelledby="previews-title" className="border-t border-cream/20 px-6 py-12 md:px-12 md:py-16 lg:px-24">
+          <div className="mb-6 flex items-baseline justify-between gap-4 border-b border-cream/20 pb-4">
+            <h2 id="previews-title" className="text-xs uppercase tracking-[0.3em] text-cream/50">
+              In this preview
+            </h2>
+            <p className="text-xs uppercase tracking-[0.2em] text-cream/40">3 songs per station</p>
+          </div>
+          <ul className="grid grid-cols-1 gap-px bg-cream/20 sm:grid-cols-2 xl:grid-cols-3">
+            {previewStations.map((station) => {
+              const active = isSelected(station);
+              return (
+                <li key={station.name} className={`p-5 ${active ? "bg-cream text-black" : "bg-black"}`}>
+                  <div className="flex items-center gap-3">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={iconPath(station)} alt="" width={40} height={40} className="h-10 w-10 shrink-0" loading="lazy" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium uppercase leading-tight">{station.name}</p>
+                      <p className={`text-xs font-light uppercase leading-tight tracking-[0.12em] ${active ? "text-black/70" : "text-cream/60"}`}>
+                        {active ? "● On air" : station.description}
+                      </p>
+                    </div>
+                  </div>
+                  <ol className="mt-4 space-y-2">
+                    {previews![station.name].map((song, i) => (
+                      <li key={song} className="flex gap-3 text-sm leading-snug">
+                        <span aria-hidden="true" className={`w-5 shrink-0 tabular-nums ${active ? "text-black/50" : "text-cream/40"}`}>
+                          {String(i + 1).padStart(2, "0")}
+                        </span>
+                        <span className="min-w-0">{song}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
 
       <div ref={hostRef} aria-hidden="true" className="pointer-events-none fixed bottom-0 left-0 h-px w-px overflow-hidden opacity-[0.01]" />
     </div>
