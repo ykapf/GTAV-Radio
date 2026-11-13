@@ -422,6 +422,10 @@ export default function RadioWheel({ game: gameId, tracks, talk = [], previews, 
   const currentRef = useRef<OnAir | null>(null);
   /** Set while a long mix is loading; it stays muted until the first PLAYING event has seeked onto the shared loop. */
   const pendingLoopSync = useRef(false);
+  /** Set when the listener pauses from the lock screen or headphones, so the stall watcher leaves it paused. */
+  const pausedRef = useRef(false);
+  /** Whether the current song or ad has started; only one that never started counts as a failed load. */
+  const startedRef = useRef(false);
   const retriesRef = useRef(0);
   const skipsRef = useRef(0);
   const volumeRef = useRef(volume);
@@ -448,6 +452,7 @@ export default function RadioWheel({ game: gameId, tracks, talk = [], previews, 
     (slot: Slot) => {
       if (modeOf(stationRef.current) !== "broadcast") return;
       currentRef.current = { item: slot.item, startMs: slot.startMs, loadedAt: Date.now() };
+      startedRef.current = false;
       setItem(slot.item);
       const player = playerRef.current;
       if (!player || !readyRef.current) return;
@@ -513,6 +518,7 @@ export default function RadioWheel({ game: gameId, tracks, talk = [], previews, 
       const ready = player && readyRef.current;
       const mode = modeOf(station);
       pendingLoopSync.current = false;
+      pausedRef.current = false;
       retriesRef.current = 0;
       skipsRef.current = 0;
       currentRef.current = null;
@@ -606,6 +612,55 @@ export default function RadioWheel({ game: gameId, tracks, talk = [], previews, 
     if (selectedStation) saveSetting(game.stationKey, selectedStation.name);
   }, [selectedStation, game.stationKey]);
 
+  // Only the audio-file stations play in this page. YouTube stations play inside YouTube's frame, which runs its own
+  // lock-screen controls; claiming the session here as well makes iOS drop them a moment after the phone locks.
+  const ownsSession = !!selectedStation && modeOf(selectedStation) === "audio";
+
+  useEffect(() => {
+    if (!("mediaSession" in navigator) || !ownsSession) return;
+    const session = navigator.mediaSession;
+    // Play rejoins the preview live, like turning a radio back on.
+    const pause = () => {
+      pausedRef.current = true;
+      audioRef.current?.pause();
+      session.playbackState = "paused";
+    };
+    const actions: [MediaSessionAction, MediaSessionActionHandler][] = [
+      ["play", () => stationRef.current && tuneRef.current(stationRef.current, false)],
+      ["pause", pause],
+      ["stop", pause],
+    ];
+    for (const [action, handler] of actions) {
+      try {
+        session.setActionHandler(action, handler);
+      } catch {}
+    }
+    return () => {
+      for (const [action] of actions) {
+        try {
+          session.setActionHandler(action, null);
+        } catch {}
+      }
+      session.metadata = null;
+      session.playbackState = "none";
+    };
+  }, [ownsSession]);
+
+  useEffect(() => {
+    if (!("mediaSession" in navigator) || typeof MediaMetadata === "undefined") return;
+    const session = navigator.mediaSession;
+    if (!ownsSession || !selectedStation) return;
+    const track = item ? (item.ad ? `Ad break: ${item.title}` : item.title) : modeOf(selectedStation) === "playlist" ? liveTitle : null;
+    const icon = new URL(iconPath(selectedStation), window.location.origin).href;
+    session.metadata = new MediaMetadata({
+      title: track || selectedStation.name,
+      artist: track ? selectedStation.name : selectedStation.description,
+      album: game.title,
+      artwork: [{ src: icon, sizes: "512x512" }],
+    });
+    session.playbackState = "playing";
+  }, [ownsSession, selectedStation, item, liveTitle, game.title]);
+
   // Browsers often block sound until the visitor interacts, so a restored station may load silently; the first click or key press starts it.
   useEffect(() => {
     const stop = () => {
@@ -680,6 +735,7 @@ export default function RadioWheel({ game: gameId, tracks, talk = [], previews, 
             const mode = modeOf(stationRef.current);
             const player = e.target;
             if (e.data === YT.PlayerState.PLAYING) {
+              startedRef.current = true;
               retriesRef.current = 0;
               skipsRef.current = 0;
               if (mode === "broadcast") checkDrift();
@@ -731,6 +787,7 @@ export default function RadioWheel({ game: gameId, tracks, talk = [], previews, 
       const player = playerRef.current;
       const YT = window.YT;
       const mode = modeOf(stationRef.current);
+      if (pausedRef.current) return;
       if (mode === "audio") {
         // Only resumes once the browser has let sound start; a blocked autoplay waits for the first click instead.
         if (audio.paused && !pendingLoopSync.current && audio.readyState >= 2) audio.play().catch(() => {});
@@ -738,6 +795,11 @@ export default function RadioWheel({ game: gameId, tracks, talk = [], previews, 
       }
       if (!player || !readyRef.current || !YT || mode === "off") return;
       const state = player.getPlayerState?.();
+      // A locked phone pauses YouTube, and reloading or restarting it then removes the lock-screen controls.
+      if (document.hidden && state !== YT.PlayerState.PLAYING) {
+        stalled = 0;
+        return;
+      }
       const cur = currentRef.current;
       if (mode === "broadcast" && cur) {
         if ((radioNow() - cur.startMs) / 1000 >= cur.item.duration + BOUNDARY_GRACE_S) {
@@ -746,7 +808,7 @@ export default function RadioWheel({ game: gameId, tracks, talk = [], previews, 
         }
         // YouTube can throttle a burst of loads for a while; keep retrying, further apart each time.
         const wait = LOAD_TIMEOUT_MS * Math.min(2 ** retriesRef.current, MAX_RETRY_BACKOFF);
-        if (state !== YT.PlayerState.PLAYING && Date.now() - cur.loadedAt > wait) {
+        if (!startedRef.current && state !== YT.PlayerState.PLAYING && Date.now() - cur.loadedAt > wait) {
           retriesRef.current += 1;
           stalled = 0;
           return playNow();
@@ -761,8 +823,17 @@ export default function RadioWheel({ game: gameId, tracks, talk = [], previews, 
     const drift = window.setInterval(() => {
       if (!document.hidden) checkDrift();
     }, DRIFT_CHECK_MS);
+    // Phones often pause playback while locked; coming back rejoins the live point straight away instead of waiting on the watcher.
     const onVisible = () => {
-      if (!document.hidden) checkDrift();
+      if (document.hidden) return;
+      const station = stationRef.current;
+      const mode = modeOf(station);
+      if (!station || mode === "off" || pausedRef.current || pendingLoopSync.current) return;
+      const player = playerRef.current;
+      const stopped =
+        mode === "audio" ? audio.paused : !!player && readyRef.current && player.getPlayerState?.() !== window.YT?.PlayerState?.PLAYING;
+      if (stopped) tuneRef.current(station, false);
+      else checkDrift();
     };
     document.addEventListener("visibilitychange", onVisible);
 
