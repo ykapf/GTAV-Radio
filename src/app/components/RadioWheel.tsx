@@ -738,7 +738,8 @@ export default function RadioWheel({ game: gameId, tracks, talk = [], previews, 
               startedRef.current = true;
               retriesRef.current = 0;
               skipsRef.current = 0;
-              if (mode === "broadcast") checkDrift();
+              // iOS refuses seeks and new loads on a locked phone, so a lock-screen play just resumes; unlocking rejoins live.
+              if (mode === "broadcast" && !document.hidden) checkDrift();
               else if (mode === "playlist") setLiveTitle(player.getVideoData?.()?.title || null);
               else if (mode === "video" && pendingLoopSync.current) {
                 pendingLoopSync.current = false;
@@ -754,6 +755,8 @@ export default function RadioWheel({ game: gameId, tracks, talk = [], previews, 
               const b = broadcastOf(stationRef.current, adsRef.current);
               // Loading a video straight after another fires a stale ENDED at 0:00; only one near the slot's end is real.
               if (!cur || !b || (radioNow() - cur.startMs) / 1000 < cur.item.duration - END_SLACK_S) return;
+              // After a lock-screen pause the next slot may already be over; one load straight onto the live slot beats a chain of them.
+              if (document.hidden) return playNow();
               playSlot(nextSlot(b, { item: cur.item, startMs: cur.startMs, offset: 0 }));
             }
           },
@@ -802,7 +805,8 @@ export default function RadioWheel({ game: gameId, tracks, talk = [], previews, 
       }
       const cur = currentRef.current;
       if (mode === "broadcast" && cur) {
-        if ((radioNow() - cur.startMs) / 1000 >= cur.item.duration + BOUNDARY_GRACE_S) {
+        // While locked, a song resumed behind the clock plays out and its ENDED moves on; cutting it off here would stall it.
+        if (!document.hidden && (radioNow() - cur.startMs) / 1000 >= cur.item.duration + BOUNDARY_GRACE_S) {
           stalled = 0;
           return playNow();
         }
