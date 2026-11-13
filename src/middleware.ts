@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 /** Domains whose home page is the GTA VI radio instead of GTA V. */
-const GTA_6_HOSTS = ["gtavi-radio-vi.vercel.app"];
+const GTA_6_HOSTS = ["gtavi-radio.vercel.app", "gtavi-radio-vi.vercel.app"];
 
 export function middleware(request: NextRequest) {
   const host = (request.headers.get("host") ?? "").split(":")[0].toLowerCase();
