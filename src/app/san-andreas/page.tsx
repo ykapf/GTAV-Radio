@@ -1,12 +1,10 @@
 import type { Metadata } from "next";
 import RadioWheel from "../components/RadioWheel";
 import Footer from "../components/Footer";
+import { pageMetadata } from "../lib/og";
 import { SAN_ANDREAS_TALK, SAN_ANDREAS_TRACKS } from "../lib/tracks/san-andreas";
 
-export const metadata: Metadata = {
-  title: "SAN ANDREAS RADIO",
-  description: "Listen to the GTA San Andreas radio stations on the web.",
-};
+export const metadata: Metadata = pageMetadata("SAN ANDREAS RADIO", "Live GTA San Andreas radio in your browser, synced so everyone hears the same song at the same second.");
 
 export default function SanAndreas() {
   return (
