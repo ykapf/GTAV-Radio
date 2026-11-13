@@ -1,12 +1,10 @@
 import type { Metadata } from "next";
 import RadioWheel from "../components/RadioWheel";
 import Footer from "../components/Footer";
+import { pageMetadata } from "../lib/og";
 import { GTA_III_TALK, GTA_III_TRACKS } from "../lib/tracks/gta-3";
 
-export const metadata: Metadata = {
-  title: "GTA III RADIO",
-  description: "Listen to the GTA III radio stations on the web.",
-};
+export const metadata: Metadata = pageMetadata("GTA III RADIO", "Live GTA III radio in your browser, synced so everyone hears the same song at the same second.");
 
 export default function GtaThree() {
   return (

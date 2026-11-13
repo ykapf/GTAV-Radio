@@ -1,12 +1,10 @@
 import type { Metadata } from "next";
 import RadioWheel from "../components/RadioWheel";
 import Footer from "../components/Footer";
+import { pageMetadata } from "../lib/og";
 import { VICE_CITY_TALK, VICE_CITY_TRACKS } from "../lib/tracks/vice-city";
 
-export const metadata: Metadata = {
-  title: "VICE CITY RADIO",
-  description: "Listen to the GTA Vice City radio stations on the web.",
-};
+export const metadata: Metadata = pageMetadata("VICE CITY RADIO", "Live GTA Vice City radio in your browser, synced so everyone hears the same song at the same second.");
 
 export default function ViceCity() {
   return (
