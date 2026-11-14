@@ -10,6 +10,8 @@ export default function GamePicker({ current }: { current: Game }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const listId = useId();
+  /** The "Stories" titles don't fit on one line on a phone at full size. */
+  const longTitle = current.title.length > 18;
 
   useEffect(() => {
     if (!open) return;
@@ -37,7 +39,7 @@ export default function GamePicker({ current }: { current: Game }) {
         if (!rootRef.current?.contains(e.relatedTarget as Node)) setOpen(false);
       }}
     >
-      <h1 className="font-headline text-3xl leading-none md:text-4xl">
+      <h1 className={`font-headline leading-none md:text-4xl ${longTitle ? "text-2xl sm:text-3xl" : "text-3xl"}`}>
         <button
           ref={buttonRef}
           type="button"
@@ -45,7 +47,7 @@ export default function GamePicker({ current }: { current: Game }) {
           aria-controls={listId}
           aria-label={`${current.title}. Choose a game`}
           onClick={() => setOpen((o) => !o)}
-          className="flex items-center gap-3 whitespace-nowrap focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-cream"
+          className={`flex items-center gap-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-cream ${longTitle ? "md:whitespace-nowrap" : "whitespace-nowrap"}`}
         >
           {current.title}
           <svg
@@ -65,7 +67,7 @@ export default function GamePicker({ current }: { current: Game }) {
       </h1>
 
       {open && (
-        <ul id={listId} className="absolute left-0 top-full z-30 mt-3 w-64 border border-cream/70 bg-black">
+        <ul id={listId} className="absolute left-0 top-full z-30 mt-3 w-72 border border-cream/70 bg-black">
           <li className="border-b border-cream/20 px-4 py-3 text-[10px] uppercase tracking-[0.3em] text-cream/50">Choose a game</li>
           {GAMES.map((game) => {
             const active = game.id === current.id;

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, CSSProperties, ReactNode, useRef, useCallback } from "react";
 import Papa from "papaparse";
-import { Broadcast, Item, MIX_LENGTHS, Slot, Track, broadcastFor, loopOffset, nextSlot, radioNow, slotAt, syncRadioClock } from "../lib/broadcast";
+import { AD_SETS, AdSet, Broadcast, Item, MIX_LENGTHS, Slot, Track, broadcastFor, loopOffset, nextSlot, radioNow, slotAt, syncRadioClock } from "../lib/broadcast";
 import { GameId, gameById } from "../lib/games";
 import GamePicker from "./GamePicker";
 
@@ -41,7 +41,7 @@ type RadioWheelProps = {
 };
 
 /** The one radio on the page plays from its game's library; each game is its own page. */
-const library: { tracks: Record<string, Track[]>; talk: Set<string> } = { tracks: {}, talk: new Set() };
+const library: { tracks: Record<string, Track[]>; talk: Set<string>; adSet: AdSet | null } = { tracks: {}, talk: new Set(), adSet: null };
 
 const RADIO_OFF = "Radio Off";
 const ADS_STORAGE_KEY = "gtav-radio:ad-breaks";
@@ -102,7 +102,7 @@ function modeOf(station: Station | null): Mode {
 }
 
 const broadcastOf = (station: Station | null, ads: boolean): Broadcast | null =>
-  station?.playlistId ? broadcastFor(station.playlistId, ads, library.tracks, library.talk.has(station.playlistId)) : null;
+  station?.playlistId ? broadcastFor(station.playlistId, ads ? library.adSet : null, library.tracks, library.talk.has(station.playlistId)) : null;
 
 function hasValidLink(station: Station) {
   const mode = modeOf(station);
@@ -395,6 +395,7 @@ export default function RadioWheel({ game: gameId, tracks, talk = [], previews, 
   const game = gameById(gameId);
   library.tracks = tracks;
   library.talk = new Set(talk);
+  library.adSet = game.ads ? AD_SETS[game.id] ?? null : null;
 
   const [stations, setStations] = useState<Station[]>([]);
   const [selectedStation, setSelectedStation] = useState<Station | null>(null);
@@ -650,7 +651,7 @@ export default function RadioWheel({ game: gameId, tracks, talk = [], previews, 
     if (!("mediaSession" in navigator) || typeof MediaMetadata === "undefined") return;
     const session = navigator.mediaSession;
     if (!ownsSession || !selectedStation) return;
-    const track = item ? (item.ad ? `Ad break: ${item.title}` : item.title) : modeOf(selectedStation) === "playlist" ? liveTitle : null;
+    const track = item ? (item.news ? `Weazel News ${item.title}` : item.ad ? `Ad break: ${item.title}` : item.title) : modeOf(selectedStation) === "playlist" ? liveTitle : null;
     const icon = new URL(iconPath(selectedStation), window.location.origin).href;
     session.metadata = new MediaMetadata({
       title: track || selectedStation.name,
@@ -918,7 +919,7 @@ export default function RadioWheel({ game: gameId, tracks, talk = [], previews, 
   const isInvalid = (station: Station) => invalid.includes(station.name);
 
   const mode = modeOf(selectedStation);
-  const onAirLabel = mode === "off" ? "Radio" : mode === "audio" ? "Station preview" : item?.ad ? "Ad break" : "Now playing";
+  const onAirLabel = mode === "off" ? "Radio" : mode === "audio" ? "Station preview" : item?.news ? "Weazel News" : item?.ad ? "Ad break" : "Now playing";
   const trackLine = item?.title ?? (mode === "playlist" ? liveTitle : null);
   const showProgress = mode !== "off";
   const showAds = mode === "broadcast" && game.ads;
@@ -936,7 +937,7 @@ export default function RadioWheel({ game: gameId, tracks, talk = [], previews, 
     if (isInvalid(station)) return INVALID_LINK;
     if (!active) return "";
     if (modeOf(station) === "off") return "● Off";
-    return item?.ad ? "● Ad break" : "● On air";
+    return item?.news ? "● Weazel News" : item?.ad ? "● Ad break" : "● On air";
   };
 
   return (
