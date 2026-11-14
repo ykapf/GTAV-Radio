@@ -829,6 +829,8 @@ export interface Item {
   /** Seconds. */
   duration: number;
   ad: boolean;
+  /** A Weazel News bulletin, which opens each ad break. */
+  news?: boolean;
 }
 
 const AD_ITEMS: Item[] = ADS.map(([start, title], i) => ({
@@ -839,6 +841,356 @@ const AD_ITEMS: Item[] = ADS.map(([start, title], i) => ({
   ad: true,
 }));
 
+/** Weazel News bulletins (GTA V); each ad break opens with one, in rotation. */
+const NEWS: [string, string, number][] = [
+  ["5wxaQai1zxM", "#1", 150],
+  ["_DKogYCbmGI", "#2: Repossession", 151],
+  ["0-Vj6vgtGfU", "#3: Complications", 104],
+  ["lW7DgiAIUr0", "#4: Father/Son", 149],
+  ["U9wtBZjnxto", "#5: Marriage Counseling", 121],
+  ["rQMYbvBGbeE", "#6: The Long Stretch", 142],
+  ["HjC7qfBYCL4", "#7: Friend Request", 100],
+  ["tduQRoKwRUA", "#8: The Jewel Store Job [Smart Approach]", 132],
+  ["yYpUS1nCKn0", "#9: The Jewel Store Job [Loud Approach]", 126],
+  ["rkGldBBfadk", "#10: Nervous Ron", 103],
+  ["WoKeCdDsae0", "#11: Trevor Philips Industries", 122],
+  ["o6lMMW8gPdY", "#12", 124],
+  ["Wgg9Rb8sclA", "#13: Friends Reunited", 83],
+  ["rHF1cTe7t9w", "#14: Fame or Shame", 150],
+  ["YG_Kfk93RYU", "#15: Three's Company", 131],
+  ["fkGZgmcESIg", "#16: By the Book", 74],
+  ["niIKL28aLhw", "#17: Hood Safari/Blitz Play Version 1", 88],
+  ["1-yOuJkyY0U", "#18: Hood Safari/Blitz Play Version 2", 101],
+  ["jRkT7SmaFjw", "#19: Blitz Play", 112],
+  ["Lb2EZzJkzTk", "#20", 67],
+  ["YdGVpS2gE78", "#21: The Merryweather Heist [Freighter]", 121],
+  ["qY15kwDijTs", "#22: Eye in the Sky Version 1", 116],
+  ["PzJQytD4doA", "#23: Eye in the Sky Version 2", 117],
+  ["EVOA1pu-5qM", "#24", 87],
+  ["g_n3D3GScfM", "#25: Caida Libre", 97],
+  ["lT9kAMCrhAg", "#26: Deep Inside", 90],
+  ["lDAWNYrQ8sY", "#27: Minor Turbulence", 81],
+  ["lUuACp8RzzM", "#28: The Paleto Score", 106],
+  ["z8UDG6IpOa8", "#29: Derailed", 113],
+  ["-zMJxTbKghw", "#30: Monkey Business", 81],
+  ["k3uTEMZvgf4", "#31: Bury the Hatchet", 105],
+  ["o__CNLvPf-Q", "#32: The Ballad of Rocco", 50],
+  ["saNCcV8IU8k", "#33: Reuniting the Family", 50],
+  ["0y06K_8yC48", "#34: The Bureau Raid [Fire Crew]", 102],
+  ["BoyGBU8fjDU", "#35: The Bureau Raid [Roof Entry]", 98],
+  ["53wfcmJgq2U", "#36: The Wrap Up", 78],
+  ["HZDogcgV4FM", "#37: Legal Trouble", 86],
+  ["x5AIKHfCCRU", "#38: Meltdown", 63],
+  ["qKFSkkBGIMQ", "#39: The Big Score [Subtle]", 91],
+  ["oGKGbzavVI8", "#40: The Big Score [Obvious]", 91],
+  ["4YT1oPOtUFc", "#41: The Third Way", 86],
+  ["4YDQ80eoRp8", "#42: Paparazzo", 45],
+  ["fJ2qWpKpbRo", "#43", 71],
+  ["7TZEkinjQDw", "#44: Paparazzo - The Meltdown", 56],
+  ["djVouRYst88", "#45: Paparazzo - The Highness", 58],
+  ["n38aeWtX02c", "#46: A Starlet in Vinewood [Kill Dreyfuss]", 59],
+  ["YnT-Sf9504g", "#47: Unknowing the Truth", 47],
+  ["GdODclCsBjU", "#48: Vinewood Souvenirs - Willy", 58],
+  ["cFGFuTjZ6AY", "#49", 64],
+  ["2nObl2QyT64", "#50: Vinewood Souvenirs - Kerry", 48],
+  ["gyPIkYSHW-g", "#51", 64],
+  ["Vqjg54PSoQQ", "#52: Vinewood Souvenirs - Al Di Napoli", 56],
+  ["hQy-IvB1fQg", "#53: Vinewood Souvenirs - The Last Act [Kill Al Di Napoli]", 48],
+  ["Szbyw2QtgaM", "#54: Vinewood Souvenirs - The Last Act [Save Al Di Napoli]", 58],
+  ["PREfkH67hnU", "#55: Uncalculated Risk", 59],
+  ["AH745BQ5q20", "#56: The Hotel Assassination", 50],
+  ["0sX9yhOGoN0", "#57: The Multi Target Assassination", 52],
+  ["MCmzgyKRFrY", "#58: The Vice Assassination", 62],
+  ["hI-2M7BMy74", "#59: The Bus Assassination", 58],
+  ["3PPLenKTZHA", "#60: The Construction Assassination", 71],
+  ["jbNlwMNScTs", "#61", 47],
+  ["p7_PX7uuJ44", "#62", 75],
+  ["cO5dr_AZg8A", "#63", 62],
+  ["UAkmF56MuQg", "#64: Altruist Cult Shootout", 56],
+  ["pGawqTVTPaU", "#65", 59],
+  ["Cei-HErwhnE", "#66", 65],
+  ["Vmgqef8Zf0c", "#67", 55],
+  ["y90R0vxcI_E", "#68", 49],
+  ["Mrf3jemVAyI", "#69", 78],
+  ["vu6QG8a2dC0", "#70", 67],
+  ["gzV213vvoPI", "#71", 64],
+  ["XslBpHY7nfk", "#72", 38],
+  ["fwKIgyqipRM", "#73", 57],
+  ["a1WqdfSBxIw", "#74", 64],
+  ["xpELom5XjQs", "#75", 70],
+  ["tYn3kb-dGtw", "#76", 63],
+  ["zR80n4OOB5s", "#77", 57],
+  ["XDm_MeqOUf4", "#78", 62],
+  ["zewtw5xbEWE", "#79", 67],
+  ["NCJ4aLb2CO8", "#80", 62],
+  ["KwdFhE3I9vQ", "#81", 62],
+  ["5mfm22k8De8", "#82", 62],
+  ["huSxcVYPpP4", "#83", 62],
+  ["PyTw_yedBKE", "#84", 62],
+  ["RS8mb_k7i-U", "#85", 62],
+  ["NtNXhXnmVHU", "#86", 62],
+  ["njUuQG0vhkk", "#87", 62],
+  ["XjgsdFlnd38", "#88", 62],
+  ["kfOlOoVhKqE", "#89", 62],
+  ["b22aXb3pHLc", "#90", 62],
+  ["NLlBdgJk9gs", "#91", 62],
+  ["lt7PF91kgIw", "#92", 62],
+  ["ziOIwpmTfjs", "#93", 47],
+  ["N74xGegSbOY", "#94", 38],
+  ["L7AOzPevl_I", "#95", 46],
+  ["1DcUF5Cix5Q", "#96", 56],
+  ["hh17xdGCSg4", "#97", 62],
+  ["a5sxSUDW8D8", "#98", 59],
+  ["HRtPJaBoslM", "#99", 74],
+  ["MnI_P1uyZQg", "#100", 36],
+  ["UAP1bLh8A1c", "#101", 61],
+];
+
+/** The GTA IV Radio Commercials video; each ad is one of its chapters (the Russian and Spanish repeats at the end are left out). */
+const GTA_4_COMMERCIALS_VIDEO = "wF2m4B1ubtw";
+const GTA_4_COMMERCIALS_END = 4013;
+
+/** [chapter start in seconds, ad name]; an ad runs until the next chapter starts. */
+const GTA_4_ADS: [number, string][] = [
+  [0, "Full Robo Hickey Hurry Mech Battle Suit"],
+  [66, "Feinburg & Van Wyck International Realty"],
+  [124, "Excelsior Extreme 9"],
+  [187, "Trackify tracking beacon"],
+  [237, "Whiz wireless"],
+  [284, "Mas Fuego energy drink"],
+  [326, "Mollis Pills"],
+  [389, "Mummification"],
+  [449, "Trackify tracking beacon"],
+  [480, "Ambulate's Motorized Scooter"],
+  [537, "Alcopatch"],
+  [574, "Electrolyte sports drink"],
+  [638, "Al Dente's"],
+  [700, "El Chamuco Roboto"],
+  [767, "Wing It computer software"],
+  [804, "Eugenics Inc. International"],
+  [857, "Vindication Angel Curse Buster BC"],
+  [924, "The Horn deodorant"],
+  [963, "Radio Carbon Dating"],
+  [1026, "Liberty City Gun Club"],
+  [1095, "Mummification"],
+  [1148, "Ambulate's Motorized Scooter"],
+  [1211, "Nuca Museum"],
+  [1262, "Im Rich promo"],
+  [1326, "America's Next Top Hooker"],
+  [1386, "VIP Luxury Ringtones"],
+  [1435, "Babiesovernight.com"],
+  [1484, "Banging Trash Can Lids For An Hour"],
+  [1541, "Bittersweet Personal E-mail Device"],
+  [1590, "Princess Robot Bubblegum"],
+  [1641, "Ambulate's Motorized Scooter"],
+  [1700, "Wing It computer software"],
+  [1753, "Karin Dilettante"],
+  [1794, "Whiz Flip cellphone"],
+  [1826, "Lipurgex pill"],
+  [1873, "Poppin'"],
+  [1966, "Beatrix Fontaine"],
+  [2022, "Waning With The Stars tv show"],
+  [2057, "Weazel News promo"],
+  [2103, "Male Aromatherapy Inc."],
+  [2163, "Medicate Me tv show"],
+  [2200, "The Science Of Crime tv show"],
+  [2253, "The Horn deodorant"],
+  [2302, "Alcotine Patch"],
+  [2347, "Eugenics Inc. International"],
+  [2408, "FLEECA credit card"],
+  [2440, "VIG Insurance"],
+  [2478, "Dragon Brain"],
+  [2571, "Pißwasser"],
+  [2621, "WTF musical"],
+  [2663, "The Men's Room tv show Bas promo"],
+  [2702, "Brucie's Executive Lifestyle Autos"],
+  [2747, "Cryogenics"],
+  [2783, "The Men's Room tv show Jeremy promo"],
+  [2801, "The Serrated Edge tv show"],
+  [2857, "John Hunter campaign ad"],
+  [2913, "Babiesovernight.com"],
+  [2955, "Bittersweet Personal E-mail Device"],
+  [2989, "VIP Luxury Ringtones"],
+  [3041, "Mas Fuego energy drink"],
+  [3086, "Ventura's Poker Challenge tv show"],
+  [3118, "The Science Of Crime tv show"],
+  [3164, "Michael Graves campaign ad"],
+  [3204, "Double Helix DNA Search"],
+  [3240, "Hamster Harem"],
+  [3276, "Medicate Me tv show"],
+  [3333, "Lipurgex pill"],
+  [3373, "Waning With The Stars tv show"],
+  [3424, "Nuca Museum"],
+  [3471, "America's Next Top Hooker"],
+  [3532, "The Suburbs tv show"],
+  [3584, "Civil Service computer game"],
+  [3641, "FLEECA credit card"],
+  [3661, "John Hunter campaign ad"],
+  [3709, "ZiT"],
+  [3748, "FLEECA credit card"],
+  [3770, "The Science Of Crime tv show"],
+  [3802, "Swinging Puppets"],
+  [3834, "Pißwasser"],
+  [3866, "Brucie's Executive Lifestyle Autos"],
+  [3916, "Michael Graves campaign ad"],
+  [3952, "FLEECA credit card"],
+  [3973, "Babiesovernight.com"],
+];
+
+/** The GTA IV Weazel News Reports video. */
+const GTA_4_NEWS_VIDEO = "mcf-zQ8lSFA";
+
+/** [start in seconds, bulletin name, seconds]; each ends where the next bulletin or weather report starts. */
+const GTA_4_NEWS: [number, string, number][] = [
+  [0, "#1: Chaos at the Bridges", 75],
+  [75, "#2: Fight Terrorism at Home", 86],
+  [161, "#3: Outlaw Online Poker", 127],
+  [303, "#4: Corruption Scandals", 65],
+  [368, "#5: Police Brutality", 97],
+  [465, "#6: Eastern Europeans", 95],
+  [560, "#7: Will The Markets Crash?", 100],
+  [678, "#8: Meth Is Awful", 98],
+  [776, "#9: Homophobic Rant", 86],
+  [862, "#10: War On Terror", 92],
+  [968, "#11: Ratings Are Up", 81],
+  [1049, "#12: Nightclub Bloodbath", 104],
+  [1153, "#13: Are You A Sex Offender?", 115],
+  [1286, "#14: Will The Bridges Open?", 93],
+  [1379, "#15: Lazlow Is Back!", 108],
+  [1487, "#16: Illegal Street Racing", 78],
+  [1565, "#17: Biker Wars", 62],
+  [1637, "#18: Dogmeat Talks", 85],
+  [1722, "#19: Murder In Hove Beach", 89],
+  [1811, "#20: Racing Gets Deadly", 90],
+  [1901, "#21: Murder In Algonquin", 78],
+  [1993, "#22: Chinatown Killing", 89],
+  [2082, "#23: Charcoal 8 Alert", 78],
+  [2160, "#24: Triangle Club Shootout", 73],
+  [2233, "#25: Forgery Alert", 68],
+  [2315, "#26: Helicopter Explosion", 100],
+  [2415, "#27: Bank Heist Manhunt", 92],
+  [2507, "#28: All Bridges Reopen", 83],
+  [2590, "#29: Explosion In Northwood", 90],
+  [2689, "#30: Prison Break", 100],
+  [2789, "#31: Highspeed Subway Chase", 78],
+  [2867, "#32: Bad Day For Deputy Commissioner", 68],
+  [2935, "#33: Deputy Commissioner Shot Dead", 79],
+  [3033, "#34: Dragon Brain Massacre", 81],
+  [3114, "#35: Criminal Found Dead", 87],
+  [3201, "#36: Fans Of Profesional Wrestling Are Still Breeding", 73],
+  [3274, "#37: Is Your Money Fake", 100],
+  [3389, "#38: Bloody Massacre In Alderney", 99],
+  [3488, "#39: A City In The Midst Of A Mob Rain Of Terror", 87],
+  [3575, "#40: Kerry McIntosh Sues Retreat", 93],
+  [3668, "#41: Bridges Are Overrated As A Means Of Crossing Rivers", 77],
+  [3764, "#42: The War On Fun Is Being Won", 106],
+  [3870, "#43: Drugs That Rearrange Your DNA", 83],
+  [3953, "#44: Niko Bellic Wanted By Police", 103],
+  [4056, "#45: Sadness At Happiness Island", 108],
+  [4178, "#46: Dead Russian Gangster", 122],
+  [4300, "#47: Serial Killer Found Dead", 80],
+  [4380, "#48: Dumpster Diving Can Make You A Millionaire", 100],
+  [4492, "#49: Email Could Be Outlawed", 62],
+  [4554, "#50: What Are Stem Cells?", 70],
+  [4624, "#51: Scooter Sales Are Up 300%", 76],
+  [4714, "#52: Pixelated Junk Shots", 88],
+  [4802, "#53: No More Rape And Pillage", 61],
+  [4863, "#54: Terror In The Skies", 74],
+  [4956, "#55: Breaking WASP News", 66],
+  [5022, "#56: Cluckin' Bell Eradicates Pigeon Problem", 76],
+  [5098, "#57: Gambling Encourages Longevity", 59],
+  [5171, "#58: Is Your Scout Leader Touching Your Kids", 58],
+  [5229, "#59: Hooker Accused Of Not Being A Hooker", 59],
+  [5308, "#60: Nine Hour Orgasm", 72],
+  [5380, "#61: Does Email Cause Heart Disease", 61],
+  [5441, "#62: Super Kids To Be Showcased", 83],
+  [5540, "#63: Slim People Are Starting To Suffer", 63],
+  [5603, "#64: Meth S'il Vous Plait", 55],
+  [5658, "#65: Drugs Scandal In The Finance Industry", 72],
+  [5745, "#66: Beer Shocker", 68],
+  [5813, "#67: 450lb Gorilla Kills 4 People", 69],
+  [5898, "#68: Bong Hits While Eating Pizza", 67],
+  [5965, "#69: Police Found Dead", 143],
+  [6108, "#70: Terror Alert", 124],
+  [6245, "#71: Prison Convoy Hijacked", 143],
+  [6388, "#72: Chaos At The Airport", 120],
+  [6508, "#73: The Party Is Over", 144],
+  [6666, "#74: Beat These Inmates", 116],
+  [6782, "#75: British Official Loses Laptop", 105],
+  [6887, "#76: Designer Hybrid Dogs", 128],
+  [7027, "#77: Los Santos Teen Badly Burnt", 69],
+  [7096, "#78: Dukes Woman Contracts West Nile Virus", 83],
+  [7194, "#79: Coked Up Psychopath", 95],
+  [7289, "#80: Are You Carpooling With A Rapist", 108],
+  [7411, "#81: Bar Snack Becomes Killing Machine", 96],
+  [7507, "#82: Meth Lab Found", 78],
+  [7604, "#83: Emoticons Are Cancer", 82],
+  [7686, "#84: American Porn Industry Suffers", 122],
+  [7826, "#85: Murder In The Harbour", 135],
+  [7961, "#86: Multiple Blasts Rock The City", 167],
+  [8145, "#87: Bahama Mamas Shootout", 132],
+  [8290, "#88: Helicopters Of Death", 155],
+  [8460, "#89: Murder And Mayhem", 148],
+  [8626, "#90: Vinewood Movie", 147],
+  [8788, "#91: Shootouts Rage Across The City", 109],
+  [8912, "#92: Are You Pregnant App", 88],
+  [9016, "#93: Dork News", 98],
+  [9127, "#94: Hip And Edgey", 82],
+  [9220, "#95: Sucker For Pie Charts", 91],
+  [9324, "#96: Female Teen Gymnast", 101],
+  [9471, "#97: Los Santos Bulimia Capital", 89],
+  [9607, "#98: Designer Cupcake Haters", 90],
+  [9743, "#99: Health News", 82],
+  [9872, "#100: Titty Magazines Effected By Recession", 92],
+  [10007, "#101: Market Executives Are Soulless", 95],
+];
+
+/** A game's commercials plus the Weazel News bulletins that open each of its ad breaks. */
+export interface AdSet {
+  id: string;
+  ads: Item[];
+  news: Item[];
+  newsTotal: number;
+  /** newsPrefix[i] is the length of bulletins 0..i-1, so any run of the rotation sums in constant time. */
+  newsPrefix: number[];
+}
+
+function adSet(id: string, ads: Item[], news: Item[]): AdSet {
+  return {
+    id,
+    ads,
+    news,
+    newsTotal: news.reduce((s, it) => s + it.duration, 0),
+    newsPrefix: news.reduce((acc, it) => (acc.push(acc[acc.length - 1] + it.duration), acc), [0]),
+  };
+}
+
+const GTA_4_AD_ITEMS: Item[] = GTA_4_ADS.map(([start, title], i) => ({
+  videoId: GTA_4_COMMERCIALS_VIDEO,
+  title,
+  start,
+  duration: (i + 1 < GTA_4_ADS.length ? GTA_4_ADS[i + 1][0] : GTA_4_COMMERCIALS_END) - start,
+  ad: true,
+}));
+
+/** Ad breaks by game; games without an entry have none. */
+export const AD_SETS: Record<string, AdSet> = {
+  "gta-v": adSet(
+    "gta-v",
+    AD_ITEMS,
+    NEWS.map(([videoId, title, duration]) => ({ videoId, title, start: 0, duration, ad: true, news: true })),
+  ),
+  "gta-4": adSet(
+    "gta-4",
+    GTA_4_AD_ITEMS,
+    GTA_4_NEWS.map(([start, title, duration]) => ({ videoId: GTA_4_NEWS_VIDEO, title, start, duration, ad: true, news: true })),
+  ),
+};
+
+/** Length of the first `count` bulletins of the endless rotation. */
+const newsBefore = (set: AdSet, count: number) =>
+  Math.floor(count / set.news.length) * set.newsTotal + set.newsPrefix[count % set.news.length];
+
 const SONGS_PER_BLOCK = [3, 5] as const;
 const ADS_PER_BREAK = [3, 6] as const;
 /** Two shuffled passes of the songs share one shuffled pass of every ad, which keeps breaks within 3-6 ads. */
@@ -846,10 +1198,10 @@ const SONG_PASSES = 2;
 const sum = (items: Item[]) => items.reduce((s, it) => s + it.duration, 0);
 
 /** Short playlists need more song passes per program, or there aren't enough song blocks to hold every ad break. */
-function songPasses(count: number, ads: boolean): number {
+function songPasses(count: number, set: AdSet | null): number {
   let passes = SONG_PASSES;
-  if (!ads) return passes;
-  while (Math.floor((count * passes) / SONGS_PER_BLOCK[0]) < Math.ceil(AD_ITEMS.length / ADS_PER_BREAK[1])) passes++;
+  if (!set) return passes;
+  while (Math.floor((count * passes) / SONGS_PER_BLOCK[0]) < Math.ceil(set.ads.length / ADS_PER_BREAK[1])) passes++;
   return passes;
 }
 
@@ -895,37 +1247,48 @@ function split(total: number, n: number, [min, max]: readonly [number, number], 
 /** A playlist's endless schedule, with or without ad breaks. */
 export interface Broadcast {
   songs: Item[];
-  ads: boolean;
+  /** The game's ads and news, or null when ad breaks are off. */
+  adSet: AdSet | null;
   /** Talk stations play their segments in order rather than shuffled. */
   ordered: boolean;
   passes: number;
-  /** Every program contains the same items, so its length is fixed and any moment maps straight to one. */
-  length: number;
+  /** Ad breaks per program; each opens with the next Weazel News bulletin in rotation. */
+  breaks: number;
+  /** Program length without its news; every program holds the same songs and ads. */
+  base: number;
   cachedProgram: number;
   cachedItems: Item[];
 }
 
 const broadcasts: Record<string, Broadcast> = {};
 
-export function broadcastFor(playlistId: string, ads: boolean, library: Record<string, Track[]>, ordered = false): Broadcast | null {
+export function broadcastFor(playlistId: string, set: AdSet | null, library: Record<string, Track[]>, ordered = false): Broadcast | null {
   const tracks = library[playlistId];
   if (!tracks?.length) return null;
-  const key = `${playlistId}:${ads ? "ads" : "no-ads"}`;
+  const key = `${playlistId}:${set ? set.id : "no-ads"}`;
   if (!broadcasts[key]) {
     const songs = tracks.map((t) => ({ videoId: t.id, title: t.title, start: 0, duration: t.duration, ad: false }));
-    const passes = songPasses(songs.length, ads);
+    const passes = songPasses(songs.length, set);
+    const count = songs.length * passes;
+    const adCount = set?.ads.length ?? 0;
+    const fewest = Math.max(Math.ceil(count / SONGS_PER_BLOCK[1]), Math.ceil(adCount / ADS_PER_BREAK[1]));
+    const most = Math.min(Math.floor(count / SONGS_PER_BLOCK[0]), Math.floor(adCount / ADS_PER_BREAK[0]));
     broadcasts[key] = {
       songs,
-      ads,
+      adSet: set,
       ordered,
       passes,
-      length: passes * sum(songs) + (ads ? sum(AD_ITEMS) : 0),
+      breaks: set ? Math.round((fewest + most) / 2) : 0,
+      base: passes * sum(songs) + (set ? sum(set.ads) : 0),
       cachedProgram: -1,
       cachedItems: [],
     };
   }
   return broadcasts[key];
 }
+
+/** Seconds from going on air to the start of program `index`. */
+const programStart = (b: Broadcast, index: number) => index * b.base + (b.adSet ? newsBefore(b.adSet, index * b.breaks) : 0);
 
 /** One full program: song blocks and ad breaks alternating, freshly shuffled each time round. */
 function programFor(b: Broadcast, index: number): Item[] {
@@ -934,20 +1297,19 @@ function programFor(b: Broadcast, index: number): Item[] {
   const songs: Item[] = [];
   for (let pass = 0; pass < b.passes; pass++) songs.push(...(b.ordered ? b.songs : shuffled(b.songs, rand)));
   let items: Item[];
-  if (!b.ads) {
+  if (!b.adSet) {
     items = songs;
   } else {
-    const ads = shuffled(AD_ITEMS, rand);
-    const fewest = Math.max(Math.ceil(songs.length / SONGS_PER_BLOCK[1]), Math.ceil(ads.length / ADS_PER_BREAK[1]));
-    const most = Math.min(Math.floor(songs.length / SONGS_PER_BLOCK[0]), Math.floor(ads.length / ADS_PER_BREAK[0]));
-    const breaks = fewest + Math.floor(rand() * (most - fewest + 1));
-    const blockSizes = split(songs.length, breaks, SONGS_PER_BLOCK, rand);
-    const breakSizes = split(ads.length, breaks, ADS_PER_BREAK, rand);
+    const { news } = b.adSet;
+    const ads = shuffled(b.adSet.ads, rand);
+    const blockSizes = split(songs.length, b.breaks, SONGS_PER_BLOCK, rand);
+    const breakSizes = split(ads.length, b.breaks, ADS_PER_BREAK, rand);
     items = [];
     let s = 0;
     let a = 0;
-    for (let k = 0; k < breaks; k++) {
+    for (let k = 0; k < b.breaks; k++) {
       for (let j = 0; j < blockSizes[k]; j++) items.push(songs[s++]);
+      items.push(news[(index * b.breaks + k) % news.length]);
       for (let j = 0; j < breakSizes[k]; j++) items.push(ads[a++]);
     }
   }
@@ -967,8 +1329,11 @@ export interface Slot {
 /** What is on air at `nowMs`. */
 export function slotAt(b: Broadcast, nowMs: number): Slot {
   const t = (nowMs - ON_AIR) / 1000;
-  const index = Math.floor(t / b.length);
-  let rem = t - index * b.length;
+  const average = b.base + (b.adSet ? (b.breaks * b.adSet.newsTotal) / b.adSet.news.length : 0);
+  let index = Math.floor(t / average);
+  while (index > 0 && programStart(b, index) > t) index--;
+  while (programStart(b, index + 1) <= t) index++;
+  let rem = t - programStart(b, index);
   const items = programFor(b, index);
   for (let i = 0; i < items.length; i++) {
     const d = items[i].duration;

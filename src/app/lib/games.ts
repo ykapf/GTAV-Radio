@@ -1,4 +1,4 @@
-export type GameId = "gta-6" | "gta-v" | "gta-3" | "vice-city" | "san-andreas" | "gta-4";
+export type GameId = "gta-6" | "gta-v" | "gta-3" | "vice-city" | "san-andreas" | "gta-4" | "liberty-city-stories" | "vice-city-stories";
 
 export interface Game {
   id: GameId;
@@ -6,7 +6,7 @@ export interface Game {
   title: string;
   href: string;
   stationList: string;
-  /** Ad breaks are GTA V commercials, so only GTA V has them. */
+  /** Only games with their own commercials and Weazel News (see AD_SETS) have ad breaks. */
   ads: boolean;
   /** Where this game remembers its last station. */
   stationKey: string;
@@ -15,7 +15,23 @@ export interface Game {
 export const GAMES: Game[] = [
   { id: "gta-6", title: "GTA VI Radio", href: "/gta-6", stationList: "/radio_list_gta-6.csv", ads: false, stationKey: "gtav-radio:station:gta-6" },
   { id: "gta-v", title: "GTA V Radio", href: "/gta-5", stationList: "/radio_list.csv", ads: true, stationKey: "gtav-radio:station" },
-  { id: "gta-4", title: "GTA IV Radio", href: "/gta-4", stationList: "/radio_list_gta-4.csv", ads: false, stationKey: "gtav-radio:station:gta-4" },
+  { id: "gta-4", title: "GTA IV Radio", href: "/gta-4", stationList: "/radio_list_gta-4.csv", ads: true, stationKey: "gtav-radio:station:gta-4" },
+  {
+    id: "vice-city-stories",
+    title: "Vice City Stories Radio",
+    href: "/vice-city-stories",
+    stationList: "/radio_list_vice-city-stories.csv",
+    ads: false,
+    stationKey: "gtav-radio:station:vice-city-stories",
+  },
+  {
+    id: "liberty-city-stories",
+    title: "Liberty City Stories Radio",
+    href: "/liberty-city-stories",
+    stationList: "/radio_list_liberty-city-stories.csv",
+    ads: false,
+    stationKey: "gtav-radio:station:liberty-city-stories",
+  },
   {
     id: "san-andreas",
     title: "San Andreas Radio",
