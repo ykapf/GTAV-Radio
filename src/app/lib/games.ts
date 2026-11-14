@@ -1,4 +1,4 @@
-export type GameId = "gta-6" | "gta-v" | "gta-3" | "vice-city" | "san-andreas" | "gta-4" | "liberty-city-stories" | "vice-city-stories";
+export type GameId = "gta-6" | "gta-v" | "gta-3" | "vice-city" | "san-andreas" | "gta-4" | "liberty-city-stories" | "vice-city-stories" | "chinatown-wars" | "gta-2" | "gta-london" | "gta-1";
 
 export interface Game {
   id: GameId;
@@ -15,6 +15,14 @@ export interface Game {
 export const GAMES: Game[] = [
   { id: "gta-6", title: "GTA VI Radio", href: "/gta-6", stationList: "/radio_list_gta-6.csv", ads: false, stationKey: "gtav-radio:station:gta-6" },
   { id: "gta-v", title: "GTA V Radio", href: "/gta-5", stationList: "/radio_list.csv", ads: true, stationKey: "gtav-radio:station" },
+  {
+    id: "chinatown-wars",
+    title: "Chinatown Wars Radio",
+    href: "/chinatown-wars",
+    stationList: "/radio_list_chinatown-wars.csv",
+    ads: false,
+    stationKey: "gtav-radio:station:chinatown-wars",
+  },
   { id: "gta-4", title: "GTA IV Radio", href: "/gta-4", stationList: "/radio_list_gta-4.csv", ads: true, stationKey: "gtav-radio:station:gta-4" },
   {
     id: "vice-city-stories",
@@ -42,6 +50,9 @@ export const GAMES: Game[] = [
   },
   { id: "vice-city", title: "Vice City Radio", href: "/vice-city", stationList: "/radio_list_vice-city.csv", ads: false, stationKey: "gtav-radio:station:vice-city" },
   { id: "gta-3", title: "GTA III Radio", href: "/gta-3", stationList: "/radio_list_gta-3.csv", ads: false, stationKey: "gtav-radio:station:gta-3" },
+  { id: "gta-2", title: "GTA 2 Radio", href: "/gta-2", stationList: "/radio_list_gta-2.csv", ads: false, stationKey: "gtav-radio:station:gta-2" },
+  { id: "gta-london", title: "GTA London Radio", href: "/gta-london", stationList: "/radio_list_gta-london.csv", ads: false, stationKey: "gtav-radio:station:gta-london" },
+  { id: "gta-1", title: "GTA 1 Radio", href: "/gta-1", stationList: "/radio_list_gta-1.csv", ads: false, stationKey: "gtav-radio:station:gta-1" },
 ];
 
 export const gameById = (id: GameId) => GAMES.find((g) => g.id === id) ?? GAMES.find((g) => g.id === "gta-v")!;

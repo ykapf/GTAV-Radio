@@ -67,7 +67,7 @@ export default function GamePicker({ current }: { current: Game }) {
       </h1>
 
       {open && (
-        <ul id={listId} className="absolute left-0 top-full z-30 mt-3 w-72 border border-cream/70 bg-black">
+        <ul id={listId} className="absolute left-0 top-full z-30 mt-3 max-h-[calc(100dvh-7rem)] w-72 overflow-y-auto overscroll-contain border border-cream/70 bg-black">
           <li className="border-b border-cream/20 px-4 py-3 text-[10px] uppercase tracking-[0.3em] text-cream/50">Choose a game</li>
           {GAMES.map((game) => {
             const active = game.id === current.id;
