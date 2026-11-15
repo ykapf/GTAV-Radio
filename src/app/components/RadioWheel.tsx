@@ -427,25 +427,24 @@ type SourceControlProps = {
   className?: string;
 };
 
-/** MP3 / YouTube switch; neither is highlighted in Auto, and picking the highlighted one again goes back to Auto. */
+/** Auto / MP3 / YouTube switch. */
 function SourceToggle({ source, onChange, className = "" }: SourceControlProps) {
-  const pick = (choice: Source) => onChange(source === choice ? "auto" : choice);
   return (
     <div role="group" aria-label="Audio source" className={`flex shrink-0 items-center border border-cream/25 ${className}`}>
       <span aria-hidden="true" className="px-3 text-[10px] uppercase tracking-[0.3em] text-cream/50">
-        {source === "auto" ? "Auto" : "Source"}
+        Source
       </span>
-      <button type="button" aria-pressed={source === "mp3"} onClick={() => pick("mp3")} className={`border-l border-cream/25 ${segmentClass(source === "mp3")}`}>
-        MP3
-      </button>
-      <button
-        type="button"
-        aria-pressed={source === "youtube"}
-        onClick={() => pick("youtube")}
-        className={`border-l border-cream/25 ${segmentClass(source === "youtube")}`}
-      >
-        YouTube
-      </button>
+      {SOURCES.map((choice) => (
+        <button
+          key={choice}
+          type="button"
+          aria-pressed={source === choice}
+          onClick={() => onChange(choice)}
+          className={`border-l border-cream/25 ${segmentClass(source === choice)}`}
+        >
+          {SOURCE_NAMES[choice]}
+        </button>
+      ))}
     </div>
   );
 }
