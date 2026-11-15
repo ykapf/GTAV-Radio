@@ -9,7 +9,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "audio": "node --no-warnings scripts/audio.mjs",
+    "audio:download": "node scripts/download-audio.mjs"
   },
   "dependencies": {
     "@vercel/analytics": "^2.0.1",

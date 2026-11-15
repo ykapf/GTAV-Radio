@@ -16,6 +16,11 @@
 # production
 /build
 
+# self-hosted MP3 library: far too big for git, it's uploaded to storage instead (see README).
+# Only the GTA VI previews are committed.
+/public/audio/*
+!/public/audio/gta-6/
+
 # misc
 .DS_Store
 *.pem

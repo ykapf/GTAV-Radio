@@ -3,6 +3,7 @@
 import React, { useState, useEffect, CSSProperties, ReactNode, useRef, useCallback } from "react";
 import Papa from "papaparse";
 import { AD_SETS, AdSet, Broadcast, Item, MIX_LENGTHS, Slot, Track, broadcastFor, loopOffset, nextSlot, radioNow, slotAt, syncRadioClock } from "../lib/broadcast";
+import { audioUrl, fileForItem, fileForMix, gameFolder, loadAudioManifest } from "../lib/audio";
 import { GameId, gameById } from "../lib/games";
 import GamePicker from "./GamePicker";
 
@@ -25,8 +26,14 @@ type Station = {
 /** off: silence · video: one long mix on a shared loop · broadcast: a playlist on the synced schedule · playlist: a playlist with no known track list · audio: a hosted audio file on a shared loop */
 type Mode = "off" | "video" | "broadcast" | "playlist" | "audio";
 
-/** The scheduled song or ad on air, and when this device asked YouTube for it. */
+/** The scheduled song or ad on air, and when this device asked for it. */
 type OnAir = { item: Item; startMs: number; loadedAt: number };
+
+/** Which player makes the sound: YouTube's frame, or the page's own audio element (MP3s and the GTA VI previews). */
+type Engine = "yt" | "audio";
+
+/** auto: MP3 when it starts quickly, otherwise YouTube · mp3: always MP3 where uploaded · youtube: never MP3. */
+type Source = "auto" | "mp3" | "youtube";
 
 type RadioWheelProps = {
   game: GameId;
@@ -41,12 +48,19 @@ type RadioWheelProps = {
 };
 
 /** The one radio on the page plays from its game's library; each game is its own page. */
-const library: { tracks: Record<string, Track[]>; talk: Set<string>; adSet: AdSet | null } = { tracks: {}, talk: new Set(), adSet: null };
+const library: { tracks: Record<string, Track[]>; talk: Set<string>; adSet: AdSet | null; folder: string } = {
+  tracks: {},
+  talk: new Set(),
+  adSet: null,
+  folder: "",
+};
 
 const RADIO_OFF = "Radio Off";
 const ADS_STORAGE_KEY = "gtav-radio:ad-breaks";
 const VOLUME_STORAGE_KEY = "gtav-radio:volume";
 const MUTED_STORAGE_KEY = "gtav-radio:muted";
+const SOURCE_STORAGE_KEY = "gtav-radio:source";
+const SOURCES: Source[] = ["auto", "mp3", "youtube"];
 
 /** Storage can be blocked (private mode, strict settings); settings then just last for this visit. */
 function readSetting(key: string): string | null {
@@ -76,6 +90,12 @@ const LOAD_TIMEOUT_MS = 8000;
 const MAX_RETRY_BACKOFF = 4;
 const STALL_CHECKS = 2;
 const MAX_SKIPS = 5;
+/** In Auto, an MP3 that hasn't started by now hands the station to YouTube. */
+const MP3_TIMEOUT_MS = 3000;
+/** This many MP3 failures in a row means the storage is unreachable, so the visit carries on from YouTube. */
+const MAX_MP3_ERRORS = 3;
+/** After this many slow stations, Auto stops trying MP3s for the rest of the visit. */
+const MAX_SLOW_STATIONS = 2;
 
 const VIDEO_ID = /^[A-Za-z0-9_-]{11}$/;
 const PLAYLIST_ID = /^[A-Za-z0-9_-]{10,}$/;
@@ -103,6 +123,16 @@ function modeOf(station: Station | null): Mode {
 
 const broadcastOf = (station: Station | null, ads: boolean): Broadcast | null =>
   station?.playlistId ? broadcastFor(station.playlistId, ads ? library.adSet : null, library.tracks, library.talk.has(station.playlistId)) : null;
+
+function fileOfItem(station: Station | null, item: Item): string | null {
+  if (!station) return null;
+  return fileForItem(library.folder, station.name, item, station.playlistId ? library.tracks[station.playlistId] : undefined, library.adSet);
+}
+
+function fileOfMix(station: Station): string | null {
+  const videoId = videoIdOf(station.link);
+  return videoId ? fileForMix(library.folder, station.name, videoId, library.adSet) : null;
+}
 
 function hasValidLink(station: Station) {
   const mode = modeOf(station);
@@ -391,11 +421,61 @@ function AdBreakButton({ on, onChange, className = "" }: Omit<AdBreakToggleProps
   );
 }
 
+type SourceControlProps = {
+  source: Source;
+  onChange: (source: Source) => void;
+  className?: string;
+};
+
+/** MP3 / YouTube switch; neither is highlighted in Auto, and picking the highlighted one again goes back to Auto. */
+function SourceToggle({ source, onChange, className = "" }: SourceControlProps) {
+  const pick = (choice: Source) => onChange(source === choice ? "auto" : choice);
+  return (
+    <div role="group" aria-label="Audio source" className={`flex shrink-0 items-center border border-cream/25 ${className}`}>
+      <span aria-hidden="true" className="px-3 text-[10px] uppercase tracking-[0.3em] text-cream/50">
+        {source === "auto" ? "Auto" : "Source"}
+      </span>
+      <button type="button" aria-pressed={source === "mp3"} onClick={() => pick("mp3")} className={`border-l border-cream/25 ${segmentClass(source === "mp3")}`}>
+        MP3
+      </button>
+      <button
+        type="button"
+        aria-pressed={source === "youtube"}
+        onClick={() => pick("youtube")}
+        className={`border-l border-cream/25 ${segmentClass(source === "youtube")}`}
+      >
+        YouTube
+      </button>
+    </div>
+  );
+}
+
+const SOURCE_NAMES: Record<Source, string> = { auto: "Auto", mp3: "MP3", youtube: "YouTube" };
+const SOURCE_SHORT: Record<Source, string> = { auto: "Auto", mp3: "MP3", youtube: "YT" };
+
+/** Square one-tap source switch for small screens: Auto → MP3 → YouTube. */
+function SourceButton({ source, onChange, className = "" }: SourceControlProps) {
+  const next = SOURCES[(SOURCES.indexOf(source) + 1) % SOURCES.length];
+  return (
+    <button
+      type="button"
+      aria-label={`Audio source: ${SOURCE_NAMES[source]}. Switch to ${SOURCE_NAMES[next]}`}
+      onClick={() => onChange(next)}
+      className={`flex h-12 w-12 shrink-0 items-center justify-center border border-cream text-cream transition-colors duration-150 hover:bg-cream hover:text-black focus-visible:bg-cream focus-visible:text-black focus-visible:outline-none motion-reduce:transition-none ${className}`}
+    >
+      <span aria-hidden="true" className={`text-[11px] font-bold uppercase leading-none tracking-[0.1em] ${source === "auto" ? "opacity-60" : ""}`}>
+        {SOURCE_SHORT[source]}
+      </span>
+    </button>
+  );
+}
+
 export default function RadioWheel({ game: gameId, tracks, talk = [], previews, banner }: RadioWheelProps) {
   const game = gameById(gameId);
   library.tracks = tracks;
   library.talk = new Set(talk);
   library.adSet = game.ads ? AD_SETS[game.id] ?? null : null;
+  library.folder = gameFolder(game.href);
 
   const [stations, setStations] = useState<Station[]>([]);
   const [selectedStation, setSelectedStation] = useState<Station | null>(null);
@@ -433,13 +513,38 @@ export default function RadioWheel({ game: gameId, tracks, talk = [], previews, 
   volumeRef.current = volume;
   const mutedRef = useRef(muted);
   mutedRef.current = muted;
+  const tuneRef = useRef<(station: Station | null, remember?: boolean) => void>(() => {});
 
-  /** Pushes the current volume and mute state to the player; a mix stays silent until it has joined the shared loop. */
+  const engineRef = useRef<Engine>("yt");
+  const [engine, setEngine] = useState<Engine>("yt");
+  /** The audio element either loops a whole file (previews, talk mixes) or plays one scheduled item at a time. */
+  const audioLoopRef = useRef(false);
+  /** Muted until the audio element has jumped to the live point, so the top of a file never leaks out. */
+  const seekPendingRef = useRef(false);
+  /** The MP3 on the audio element, relative to the audio base; null for the GTA VI previews, which have no YouTube fallback. */
+  const audioFileRef = useRef<string | null>(null);
+  const audioLoadedAtRef = useRef(0);
+  /** The browser refused to start sound before the visitor interacted; that isn't a slow MP3. */
+  const playBlockedRef = useRef(false);
+  const mp3TimerRef = useRef(0);
+  const sourceRef = useRef<Source>("auto");
+  const [source, setSource] = useState<Source>("auto");
+  /** Uploaded MP3s and their lengths, from the audio manifest. */
+  const filesRef = useRef<Record<string, number>>({});
+  const [hasMp3, setHasMp3] = useState(false);
+  /** MP3s that failed to load this visit; their songs play from YouTube. */
+  const failedFilesRef = useRef(new Set<string>());
+  const mp3ErrorsRef = useRef(0);
+  /** In Auto, a station whose MP3 was too slow stays on YouTube until another station is picked. */
+  const fallbackStationRef = useRef<string | null>(null);
+  const slowCountRef = useRef(0);
+
+  /** Pushes the current volume and mute state to both players; each stays silent until it has joined the live point. */
   const applySound = useCallback(() => {
     const audio = audioRef.current;
     if (audio) {
       audio.volume = volumeRef.current / 100;
-      audio.muted = mutedRef.current || pendingLoopSync.current;
+      audio.muted = mutedRef.current || seekPendingRef.current;
     }
     const player = playerRef.current;
     if (!player || !readyRef.current) return;
@@ -448,13 +553,99 @@ export default function RadioWheel({ game: gameId, tracks, talk = [], previews, 
     else player.unMute();
   }, []);
 
-  /** One request: YouTube loads the song or ad straight at the second the schedule is up to. */
+  const blocked = useCallback((error: unknown) => {
+    if ((error as { name?: string })?.name === "NotAllowedError") playBlockedRef.current = true;
+  }, []);
+
+  /** Whether this file should play from MP3 rather than YouTube, given the listener's choice and how MP3s have gone this visit. */
+  const mp3Ok = useCallback((file: string | null): file is string => {
+    if (!file || !audioRef.current || sourceRef.current === "youtube") return false;
+    if (filesRef.current[file] === undefined || failedFilesRef.current.has(file) || mp3ErrorsRef.current >= MAX_MP3_ERRORS) return false;
+    if (sourceRef.current === "auto" && (fallbackStationRef.current === stationRef.current?.name || slowCountRef.current >= MAX_SLOW_STATIONS)) return false;
+    return true;
+  }, []);
+
+  const stopAudio = useCallback(() => {
+    window.clearTimeout(mp3TimerRef.current);
+    audioFileRef.current = null;
+    seekPendingRef.current = false;
+    const audio = audioRef.current;
+    if (!audio || !audio.getAttribute("src")) return;
+    audio.pause();
+    audio.removeAttribute("src");
+    audio.load();
+  }, []);
+
+  const switchEngine = useCallback(
+    (next: Engine) => {
+      const previous = engineRef.current;
+      engineRef.current = next;
+      setEngine(next);
+      if (previous === next) return;
+      if (next === "yt") stopAudio();
+      else if (playerRef.current && readyRef.current) playerRef.current.stopVideo();
+    },
+    [stopAudio],
+  );
+
+  /** In Auto, hands the station to YouTube if its MP3 hasn't started within a few seconds. */
+  const armMp3Timer = useCallback(() => {
+    window.clearTimeout(mp3TimerRef.current);
+    if (!audioFileRef.current || sourceRef.current !== "auto") return;
+    mp3TimerRef.current = window.setTimeout(() => {
+      const station = stationRef.current;
+      if (!station || engineRef.current !== "audio" || startedRef.current || playBlockedRef.current || pausedRef.current) return;
+      fallbackStationRef.current = station.name;
+      slowCountRef.current += 1;
+      tuneRef.current(station, false);
+    }, MP3_TIMEOUT_MS);
+  }, []);
+
+  /** Loads a file into the audio element; it plays muted until its metadata is in and it has jumped to the live point. */
+  const startAudio = useCallback(
+    (url: string, file: string | null, loop: boolean) => {
+      const audio = audioRef.current;
+      if (!audio) return;
+      switchEngine("audio");
+      audio.loop = loop;
+      audioLoopRef.current = loop;
+      audioFileRef.current = file;
+      audioLoadedAtRef.current = Date.now();
+      seekPendingRef.current = true;
+      startedRef.current = false;
+      applySound();
+      audio.src = url;
+      // Started inside the click (or lock-screen press) so the browser lets it play; the seek follows once the length is known.
+      audio.play().catch(blocked);
+      armMp3Timer();
+    },
+    [switchEngine, applySound, blocked, armMp3Timer],
+  );
+
+  /** One request: the MP3, or YouTube, loads the song or ad straight at the second the schedule is up to. */
   const playSlot = useCallback(
     (slot: Slot) => {
       if (modeOf(stationRef.current) !== "broadcast") return;
       currentRef.current = { item: slot.item, startMs: slot.startMs, loadedAt: Date.now() };
       startedRef.current = false;
       setItem(slot.item);
+      const file = fileOfItem(stationRef.current, slot.item);
+      const audio = audioRef.current;
+      if (audio && mp3Ok(file)) {
+        if (engineRef.current === "audio" && audioFileRef.current === file && audio.readyState >= 1 && !seekPendingRef.current) {
+          // Ads share one commercials file, so moving between them (or rejoining live) is just a seek.
+          const target = slot.item.start + Math.max(0, (radioNow() - slot.startMs) / 1000);
+          if (Math.abs(audio.currentTime - target) > 1) audio.currentTime = target;
+          if (audio.paused) audio.play().catch(blocked);
+          startedRef.current = !audio.paused;
+          audioLoadedAtRef.current = Date.now();
+          armMp3Timer();
+          return;
+        }
+        startAudio(audioUrl(file), file, false);
+        return;
+      }
+      switchEngine("yt");
       const player = playerRef.current;
       if (!player || !readyRef.current) return;
       const { videoId, start, duration, ad } = slot.item;
@@ -462,7 +653,7 @@ export default function RadioWheel({ game: gameId, tracks, talk = [], previews, 
       applySound();
       player.loadVideoById({ videoId, startSeconds: start + offset, endSeconds: ad ? start + duration : undefined });
     },
-    [applySound],
+    [applySound, blocked, mp3Ok, armMp3Timer, startAudio, switchEngine],
   );
 
   /** Joins whatever the station's schedule has on air right now. */
@@ -474,11 +665,21 @@ export default function RadioWheel({ game: gameId, tracks, talk = [], previews, 
   /** Re-seeks only once the video has settled and this device has clearly wandered from the schedule. */
   const checkDrift = useCallback(() => {
     const audio = audioRef.current;
-    if (modeOf(stationRef.current) === "audio") {
-      if (!audio || audio.paused || pendingLoopSync.current || !(audio.duration > 0)) return;
-      const expected = loopOffset(audio.duration);
-      const gap = Math.abs(audio.currentTime - expected);
-      if (Math.min(gap, audio.duration - gap) > DRIFT_LIMIT_S) audio.currentTime = expected;
+    if (engineRef.current === "audio") {
+      if (!audio || audio.paused || seekPendingRef.current || !(audio.duration > 0)) return;
+      if (audioLoopRef.current) {
+        const expected = loopOffset(audio.duration);
+        const gap = Math.abs(audio.currentTime - expected);
+        if (Math.min(gap, audio.duration - gap) > DRIFT_LIMIT_S) audio.currentTime = expected;
+        return;
+      }
+      const cur = currentRef.current;
+      if (!cur || modeOf(stationRef.current) !== "broadcast") return;
+      const expected = (radioNow() - cur.startMs) / 1000;
+      if (expected >= cur.item.duration + BOUNDARY_GRACE_S) return playNow();
+      if (expected < 0 || Date.now() - cur.loadedAt < SETTLE_MS) return;
+      const actual = audio.currentTime - cur.item.start;
+      if (Math.abs(actual - expected) > DRIFT_LIMIT_S && cur.item.start + expected < audio.duration - 1) audio.currentTime = cur.item.start + expected;
       return;
     }
     const player = playerRef.current;
@@ -500,9 +701,9 @@ export default function RadioWheel({ game: gameId, tracks, talk = [], previews, 
       const cur = currentRef.current;
       return cur ? { elapsed: (radioNow() - cur.startMs) / 1000, duration: cur.item.duration } : null;
     }
-    if (mode === "audio") {
+    if (engineRef.current === "audio") {
       const audio = audioRef.current;
-      return audio && !pendingLoopSync.current && audio.duration > 0 ? { elapsed: audio.currentTime, duration: audio.duration } : null;
+      return audio && !seekPendingRef.current && audio.duration > 0 ? { elapsed: audio.currentTime, duration: audio.duration } : null;
     }
     const player = playerRef.current;
     if (mode === "off" || pendingLoopSync.current || !player || !readyRef.current) return null;
@@ -513,6 +714,7 @@ export default function RadioWheel({ game: gameId, tracks, talk = [], previews, 
   const tune = useCallback(
     (station: Station | null, remember = true) => {
       if (remember && stationRef.current && stationRef.current.name !== station?.name) prevStationRef.current = stationRef.current;
+      if (stationRef.current?.name !== station?.name) fallbackStationRef.current = null;
       stationRef.current = station;
       setSelectedStation(station);
       const player = playerRef.current;
@@ -523,26 +725,17 @@ export default function RadioWheel({ game: gameId, tracks, talk = [], previews, 
       retriesRef.current = 0;
       skipsRef.current = 0;
       currentRef.current = null;
+      window.clearTimeout(mp3TimerRef.current);
       setItem(null);
       setLiveTitle(null);
-      const audio = audioRef.current;
-      if (audio && mode !== "audio") {
-        audio.pause();
-        audio.removeAttribute("src");
-        audio.load();
+      if (mode === "audio" && station) return startAudio(station.link, null, true);
+      if (mode === "broadcast") return playNow();
+      if (mode === "video" && station) {
+        const file = fileOfMix(station);
+        if (mp3Ok(file)) return startAudio(audioUrl(file), file, true);
       }
-      if (mode === "audio" && station) {
-        if (ready) player.stopVideo();
-        if (audio) {
-          // Muted until the file's length is known and it has jumped onto the shared loop.
-          pendingLoopSync.current = true;
-          applySound();
-          audio.src = station.link;
-          audio.load();
-        }
-      } else if (mode === "broadcast") {
-        playNow();
-      } else if (mode === "video" && station) {
+      switchEngine("yt");
+      if (mode === "video" && station) {
         const videoId = videoIdOf(station.link);
         const length = videoId ? MIX_LENGTHS[videoId] : undefined;
         if (length) {
@@ -567,9 +760,8 @@ export default function RadioWheel({ game: gameId, tracks, talk = [], previews, 
         player.stopVideo();
       }
     },
-    [playNow, applySound],
+    [playNow, applySound, startAudio, mp3Ok, switchEngine],
   );
-  const tuneRef = useRef(tune);
   tuneRef.current = tune;
 
   const markInvalid = (name: string) => setInvalid((list) => (list.includes(name) ? list : [...list, name]));
@@ -592,6 +784,19 @@ export default function RadioWheel({ game: gameId, tracks, talk = [], previews, 
     if (modeOf(stationRef.current) === "broadcast") playNow();
   };
 
+  const changeSource = (next: Source) => {
+    sourceRef.current = next;
+    setSource(next);
+    saveSetting(SOURCE_STORAGE_KEY, next);
+    // A fresh choice gets a fresh try at MP3s that were slow or unreachable earlier.
+    fallbackStationRef.current = null;
+    slowCountRef.current = 0;
+    mp3ErrorsRef.current = 0;
+    const station = stationRef.current;
+    const mode = modeOf(station);
+    if (station && (mode === "broadcast" || mode === "video")) tune(station, false);
+  };
+
   useEffect(() => {
     if (game.ads && readSetting(ADS_STORAGE_KEY) === "off") {
       adsRef.current = false;
@@ -607,15 +812,20 @@ export default function RadioWheel({ game: gameId, tracks, talk = [], previews, 
       mutedRef.current = true;
       setMuted(true);
     }
+    const savedSource = readSetting(SOURCE_STORAGE_KEY) as Source | null;
+    if (savedSource && SOURCES.includes(savedSource)) {
+      sourceRef.current = savedSource;
+      setSource(savedSource);
+    }
   }, [game.ads]);
 
   useEffect(() => {
     if (selectedStation) saveSetting(game.stationKey, selectedStation.name);
   }, [selectedStation, game.stationKey]);
 
-  // Only the audio-file stations play in this page. YouTube stations play inside YouTube's frame, which runs its own
+  // Only MP3s and the GTA VI previews play in this page. YouTube plays inside YouTube's frame, which runs its own
   // lock-screen controls; claiming the session here as well makes iOS drop them a moment after the phone locks.
-  const ownsSession = !!selectedStation && modeOf(selectedStation) === "audio";
+  const ownsSession = !!selectedStation && engine === "audio";
 
   useEffect(() => {
     if (!("mediaSession" in navigator) || !ownsSession) return;
@@ -670,9 +880,10 @@ export default function RadioWheel({ game: gameId, tracks, talk = [], previews, 
     };
     const resume = () => {
       const audio = audioRef.current;
-      if (modeOf(stationRef.current) === "audio" && audio) {
+      if (engineRef.current === "audio" && audio) {
         stop();
-        if (audio.paused) audio.play().catch(() => {});
+        // A blocked start has fallen behind the clock, so this rejoins live rather than resuming where it sat.
+        if (audio.paused && stationRef.current) tuneRef.current(stationRef.current, false);
         return;
       }
       const player = playerRef.current;
@@ -693,25 +904,68 @@ export default function RadioWheel({ game: gameId, tracks, talk = [], previews, 
 
     const audio = new Audio();
     audio.preload = "auto";
-    audio.loop = true;
     audioRef.current = audio;
+    /** Jumps a freshly loaded file to the live point: the shared loop for whole files, the scheduled second for songs and ads. */
     const onAudioReady = () => {
-      if (modeOf(stationRef.current) !== "audio" || !pendingLoopSync.current) return;
-      audio.currentTime = loopOffset(audio.duration);
-      pendingLoopSync.current = false;
+      if (engineRef.current !== "audio" || !seekPendingRef.current) return;
+      if (audioLoopRef.current) {
+        audio.currentTime = loopOffset(audio.duration);
+      } else {
+        const cur = currentRef.current;
+        if (!cur) return;
+        const room = Math.max(0, Math.min(cur.item.duration, audio.duration - cur.item.start) - 0.5);
+        audio.currentTime = cur.item.start + Math.min(Math.max(0, (radioNow() - cur.startMs) / 1000), room);
+      }
+      seekPendingRef.current = false;
       applySound();
-      audio.play().catch(() => {});
+      if (!pausedRef.current) audio.play().catch(blocked);
+    };
+    const onAudioStarted = () => {
+      if (engineRef.current !== "audio" || seekPendingRef.current || audio.paused || startedRef.current) return;
+      startedRef.current = true;
+      playBlockedRef.current = false;
+      retriesRef.current = 0;
+      if (audioFileRef.current) mp3ErrorsRef.current = 0;
+      window.clearTimeout(mp3TimerRef.current);
+    };
+    /** Moves on to the next scheduled item; on a locked phone this keeps the same audio element going, so iOS lets it play. */
+    const advance = () => {
+      const cur = currentRef.current;
+      const b = broadcastOf(stationRef.current, adsRef.current);
+      if (!cur || !b || modeOf(stationRef.current) !== "broadcast") return;
+      playSlot(nextSlot(b, { item: cur.item, startMs: cur.startMs, offset: 0 }));
+    };
+    const onAudioTime = () => {
+      onAudioStarted();
+      if (engineRef.current !== "audio" || audioLoopRef.current || seekPendingRef.current || audio.paused) return;
+      // Ads end part-way through the commercials file, and a song's MP3 may run a little past its YouTube length.
+      const cur = currentRef.current;
+      if (cur && audio.currentTime >= cur.item.start + cur.item.duration) advance();
+    };
+    const onAudioEnded = () => {
+      if (engineRef.current === "audio" && !audioLoopRef.current && !seekPendingRef.current) advance();
     };
     const onAudioError = () => {
       const failed = stationRef.current;
-      if (!failed || modeOf(failed) !== "audio" || !audio.getAttribute("src")) return;
-      pendingLoopSync.current = false;
+      if (!failed || engineRef.current !== "audio" || !audio.getAttribute("src")) return;
+      seekPendingRef.current = false;
+      const file = audioFileRef.current;
+      if (file) {
+        // A missing or unreachable MP3 isn't a dead station: the same song carries on from YouTube.
+        failedFilesRef.current.add(file);
+        mp3ErrorsRef.current += 1;
+        tuneRef.current(failed, false);
+        return;
+      }
       markInvalid(failed.name);
       setNotice(failed.name);
       const back = prevStationRef.current && prevStationRef.current.name !== failed.name ? prevStationRef.current : null;
       tuneRef.current(back, false);
     };
     audio.addEventListener("loadedmetadata", onAudioReady);
+    audio.addEventListener("playing", onAudioStarted);
+    audio.addEventListener("timeupdate", onAudioTime);
+    audio.addEventListener("ended", onAudioEnded);
     audio.addEventListener("error", onAudioError);
     if (modeOf(stationRef.current) === "audio") tuneRef.current(stationRef.current, false);
 
@@ -730,9 +984,11 @@ export default function RadioWheel({ game: gameId, tracks, talk = [], previews, 
           onReady: () => {
             readyRef.current = true;
             applySound();
-            if (stationRef.current && modeOf(stationRef.current) !== "audio") tuneRef.current(stationRef.current, false);
+            if (stationRef.current && engineRef.current === "yt") tuneRef.current(stationRef.current, false);
           },
           onStateChange: (e: any) => {
+            // Stopping YouTube for an MP3 still fires its events; they belong to the item before.
+            if (engineRef.current !== "yt") return;
             const mode = modeOf(stationRef.current);
             const player = e.target;
             if (e.data === YT.PlayerState.PLAYING) {
@@ -762,6 +1018,7 @@ export default function RadioWheel({ game: gameId, tracks, talk = [], previews, 
             }
           },
           onError: () => {
+            if (engineRef.current !== "yt") return;
             const failed = stationRef.current;
             const mode = modeOf(failed);
             if (!failed) return;
@@ -792,9 +1049,17 @@ export default function RadioWheel({ game: gameId, tracks, talk = [], previews, 
       const YT = window.YT;
       const mode = modeOf(stationRef.current);
       if (pausedRef.current) return;
-      if (mode === "audio") {
+      if (engineRef.current === "audio") {
         // Only resumes once the browser has let sound start; a blocked autoplay waits for the first click instead.
-        if (audio.paused && !pendingLoopSync.current && audio.readyState >= 2) audio.play().catch(() => {});
+        if (audio.paused && !seekPendingRef.current && audio.readyState >= 2 && !playBlockedRef.current) audio.play().catch(blocked);
+        const cur = currentRef.current;
+        if (!audioLoopRef.current && cur && !document.hidden && (radioNow() - cur.startMs) / 1000 >= cur.item.duration + BOUNDARY_GRACE_S) return playNow();
+        // Picked "MP3" outright: a file that never starts is reloaded, further apart each time, rather than swapped for YouTube.
+        const wait = LOAD_TIMEOUT_MS * Math.min(2 ** retriesRef.current, MAX_RETRY_BACKOFF);
+        if (audioFileRef.current && !startedRef.current && !playBlockedRef.current && Date.now() - audioLoadedAtRef.current > wait) {
+          retriesRef.current += 1;
+          if (stationRef.current) tuneRef.current(stationRef.current, false);
+        }
         return;
       }
       if (!player || !readyRef.current || !YT || mode === "off") return;
@@ -833,10 +1098,10 @@ export default function RadioWheel({ game: gameId, tracks, talk = [], previews, 
       if (document.hidden) return;
       const station = stationRef.current;
       const mode = modeOf(station);
-      if (!station || mode === "off" || pausedRef.current || pendingLoopSync.current) return;
+      if (!station || mode === "off" || pausedRef.current || pendingLoopSync.current || seekPendingRef.current) return;
       const player = playerRef.current;
       const stopped =
-        mode === "audio" ? audio.paused : !!player && readyRef.current && player.getPlayerState?.() !== window.YT?.PlayerState?.PLAYING;
+        engineRef.current === "audio" ? audio.paused : !!player && readyRef.current && player.getPlayerState?.() !== window.YT?.PlayerState?.PLAYING;
       if (stopped) tuneRef.current(station, false);
       else checkDrift();
     };
@@ -849,7 +1114,11 @@ export default function RadioWheel({ game: gameId, tracks, talk = [], previews, 
       document.removeEventListener("visibilitychange", onVisible);
       playerRef.current?.destroy?.();
       playerRef.current = null;
+      window.clearTimeout(mp3TimerRef.current);
       audio.removeEventListener("loadedmetadata", onAudioReady);
+      audio.removeEventListener("playing", onAudioStarted);
+      audio.removeEventListener("timeupdate", onAudioTime);
+      audio.removeEventListener("ended", onAudioEnded);
       audio.removeEventListener("error", onAudioError);
       audio.pause();
       audio.removeAttribute("src");
@@ -857,7 +1126,7 @@ export default function RadioWheel({ game: gameId, tracks, talk = [], previews, 
       readyRef.current = false;
       host.remove();
     };
-  }, [applySound, checkDrift, playNow, playSlot]);
+  }, [applySound, blocked, checkDrift, playNow, playSlot]);
 
   const changeVolume = (value: number) => {
     volumeRef.current = value;
@@ -875,7 +1144,9 @@ export default function RadioWheel({ game: gameId, tracks, talk = [], previews, 
 
   useEffect(() => {
     async function fetchStations() {
-      const response = await fetch(game.stationList);
+      const [response, files] = await Promise.all([fetch(game.stationList), loadAudioManifest()]);
+      filesRef.current = files;
+      setHasMp3(Object.keys(files).some((file) => file.startsWith(`${library.folder}/`)));
       const csv = await response.text();
       const parsedData = Papa.parse<Station>(csv, { header: true, skipEmptyLines: true, transform: (v) => v.trim() }).data;
       const list = parsedData.filter((s) => s.name);
@@ -923,9 +1194,11 @@ export default function RadioWheel({ game: gameId, tracks, talk = [], previews, 
   const trackLine = item?.title ?? (mode === "playlist" ? liveTitle : null);
   const showProgress = mode !== "off";
   const showAds = mode === "broadcast" && game.ads;
+  const showSource = hasMp3 && (mode === "broadcast" || mode === "video");
 
   const volumeProps = { volume, muted, onToggleMute: toggleMute, onVolume: changeVolume };
   const adToggleProps = { on: adsOn, onChange: changeAds };
+  const sourceProps = { source, onChange: changeSource };
 
   const noticeText = notice ? (
     <p role="alert" className="text-xs font-medium uppercase tracking-[0.2em] text-[#ff4d4d]">
@@ -981,6 +1254,14 @@ export default function RadioWheel({ game: gameId, tracks, talk = [], previews, 
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-2 md:gap-3">
+                  {showSource && (
+                    <>
+                      <SourceButton {...sourceProps} className="md:hidden" />
+                      <div className="hidden md:block">
+                        <SourceToggle {...sourceProps} />
+                      </div>
+                    </>
+                  )}
                   {showAds && (
                     <>
                       <AdBreakButton {...adToggleProps} className="md:hidden" />
@@ -1048,7 +1329,8 @@ export default function RadioWheel({ game: gameId, tracks, talk = [], previews, 
               </>
             )}
             {noticeText && <div className="mt-4">{noticeText}</div>}
-            <div className="mt-6 flex items-center gap-3">
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+              {showSource && <SourceToggle {...sourceProps} />}
               {showAds && <AdBreakToggle {...adToggleProps} label="Ad breaks" />}
               <VolumeControl {...volumeProps} placement="above" />
             </div>
