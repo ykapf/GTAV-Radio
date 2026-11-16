@@ -94,6 +94,8 @@ const MAX_SKIPS = 5;
 const MP3_TIMEOUT_MS = 3000;
 /** This many MP3 failures in a row means the storage is unreachable, so the visit carries on from YouTube. */
 const MAX_MP3_ERRORS = 3;
+/** Reloads of a failed MP3 while the phone is locked, before it gives up and falls back to YouTube. */
+const HIDDEN_MP3_RETRIES = 2;
 /** After this many slow stations, Auto stops trying MP3s for the rest of the visit. */
 const MAX_SLOW_STATIONS = 2;
 
@@ -594,6 +596,8 @@ export default function RadioWheel({ game: gameId, tracks, talk = [], previews, 
     mp3TimerRef.current = window.setTimeout(() => {
       const station = stationRef.current;
       if (!station || engineRef.current !== "audio" || startedRef.current || playBlockedRef.current || pausedRef.current) return;
+      // A locked phone won't start YouTube, so a slow MP3 is left to the watcher's reload instead.
+      if (document.hidden) return;
       fallbackStationRef.current = station.name;
       slowCountRef.current += 1;
       tuneRef.current(station, false);
@@ -641,7 +645,9 @@ export default function RadioWheel({ game: gameId, tracks, talk = [], previews, 
           armMp3Timer();
           return;
         }
-        startAudio(audioUrl(file), file, false);
+        // The #t fragment has the browser fetch from the live point, not the top of a long file like the commercials.
+        const at = slot.item.start + Math.max(0, (radioNow() - slot.startMs) / 1000);
+        startAudio(audioUrl(file) + (at > 1 ? `#t=${at.toFixed(1)}` : ""), file, false);
         return;
       }
       switchEngine("yt");
@@ -949,6 +955,13 @@ export default function RadioWheel({ game: gameId, tracks, talk = [], previews, 
       if (!failed || engineRef.current !== "audio" || !audio.getAttribute("src")) return;
       seekPendingRef.current = false;
       const file = audioFileRef.current;
+      if (file && document.hidden && retriesRef.current < HIDDEN_MP3_RETRIES) {
+        // YouTube can't start on a locked phone, so a dropped load is retried on the same audio element first.
+        retriesRef.current += 1;
+        if (audioLoopRef.current) startAudio(audioUrl(file), file, true);
+        else playNow();
+        return;
+      }
       if (file) {
         // A missing or unreachable MP3 isn't a dead station: the same song carries on from YouTube.
         failedFilesRef.current.add(file);
@@ -1125,7 +1138,7 @@ export default function RadioWheel({ game: gameId, tracks, talk = [], previews, 
       readyRef.current = false;
       host.remove();
     };
-  }, [applySound, blocked, checkDrift, playNow, playSlot]);
+  }, [applySound, blocked, checkDrift, playNow, playSlot, startAudio]);
 
   const changeVolume = (value: number) => {
     volumeRef.current = value;
