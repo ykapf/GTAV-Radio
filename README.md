@@ -2,19 +2,19 @@
 
 ## Description
 
-This web application replicates the radio wheel from GTA V, allowing users to listen to the radio stations from GTA VI (station previews), GTA V, GTA Chinatown Wars, GTA IV (including Episodes from Liberty City), GTA Vice City Stories, GTA Liberty City Stories, GTA San Andreas, GTA Vice City, GTA III, GTA 2, GTA London (1969 and 1961) and the original GTA online. The app streams radio content from YouTube, providing an authentic GTA V radio experience complete with all radio information and currently playing songs. To enhance realism, radios run on a shared clock like real broadcasts, so every listener hears the same song at the same moment, with optional GTA V and GTA IV ad breaks that open with a Weazel News bulletin.
+This web application replicates the radio wheel from GTA V, allowing users to listen to the radio stations from GTA VI (station previews), GTA V, GTA Chinatown Wars, GTA IV (including Episodes from Liberty City), GTA Vice City Stories, GTA Liberty City Stories, GTA San Andreas, GTA Vice City, GTA III, GTA 2, GTA London (1969 and 1961) and the original GTA. The app plays radio content from self-hosted MP3s, with YouTube as a fail-safe, providing an authentic GTA V radio experience complete with all radio information and currently playing songs. To enhance realism, radios run on a shared clock like real broadcasts, so every listener hears the same song at the same moment, with optional GTA V and GTA IV ad breaks that open with a Weazel News bulletin.
 
 ## Features
 
-- Stream radio stations from GTA V, GTA Chinatown Wars, GTA IV, GTA Vice City Stories, GTA Liberty City Stories, GTA San Andreas, GTA Vice City, GTA III, GTA 2, GTA London and the original GTA from YouTube.
+- Listen to radio stations from GTA V, GTA Chinatown Wars, GTA IV, GTA Vice City Stories, GTA Liberty City Stories, GTA San Andreas, GTA Vice City, GTA III, GTA 2, GTA London and the original GTA.
 - GTA VI is coming soon: its page has a live countdown to launch (November 19, 2026) and plays Rockstar's official previews of six stations (Cocoteo FM, Back Country Radio, AfroBank FM, The Chamber 106.6, Flash FM and Dirty South Classics), with the songs heard in each preview. GTA IV stations include their songs from The Lost and Damned and The Ballad of Gay Tony, plus Lazlow's talk station Integrity 2.0.
 - Each game has its own page, picked from the dropdown in the top bar: GTA VI at `/gta-6`, GTA V on the home page, then `/chinatown-wars`, `/gta-4`, `/vice-city-stories`, `/liberty-city-stories`, `/san-andreas`, `/vice-city`, `/gta-3`, `/gta-2`, `/gta-london` and `/gta-1`, listed newest to oldest.
 - GTA V and GTA IV ad breaks each open with one of that game's 101 Weazel News bulletins, played in rotation on the shared clock. Turning ad breaks off also turns the news off.
 - Display current playing song and radio details.
 - Time-synced playback: no matter the device or how often you refresh, a station plays the same thing for everyone.
 - In-game commercials between songs on GTA V and GTA IV stations, which can be switched off.
-- Plays self-hosted MP3s where they're uploaded, with YouTube as a fail-safe. MP3s keep playing on a locked phone, with the station logo and song on the lock screen.
-- An audio source switch next to the volume button: Auto (the default) plays the MP3 and moves to YouTube if it hasn't started within about 3 seconds, MP3 always uses MP3s, and YouTube never does. Songs without an MP3 always play from YouTube.
+- Plays self-hosted MP3s where they're uploaded, with YouTube as a fail-safe. MP3s keep playing on a locked phone, including into ad breaks, with the station logo and song on the lock screen.
+- An audio source switch next to the volume button: Auto (the default) plays the MP3 and moves to YouTube if it hasn't started within about 3 seconds (on a locked phone it waits for the MP3 instead, because iOS won't start YouTube there), MP3 always uses MP3s, and YouTube never does. Songs without an MP3 always play from YouTube.
 - Remembers your volume, mute, ad breaks setting, audio source and the last station you played in each game.
 - Elegant and responsive UI mimicking GTA V's style.
 
